@@ -13,8 +13,6 @@ const HomePage = () => {
 
   const { meetings, fetchMeetings, addMeeting, removeMeeting } =
     useMeetingStore();
-  console.log(meetings);
-
   useEffect(() => {
     fetchMeetings(); // Fetch meetings from the backend on mount
   }, []);
