@@ -7,12 +7,15 @@ import Modal from "../components/Modal";
 import ScheduleMeetingForm from "../components/ScheduleMeetingForm";
 import ScheduledMeetingCard from "../components/ScheduledMeetingCard";
 import { useMeetingStore } from "../store/useMeetingStore";
+import { useNavigate } from "react-router-dom";
 
 const HomePage = () => {
+  const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const { meetings, fetchMeetings, addMeeting, removeMeeting } =
     useMeetingStore();
+
   useEffect(() => {
     fetchMeetings(); // Fetch meetings from the backend on mount
   }, []);
@@ -21,12 +24,20 @@ const HomePage = () => {
     await addMeeting(newMeeting);
   };
 
+  const handleJoinMeeting = () => {
+    navigate("/Ask-for-join");
+  };
+
   return (
     <div className="min-h-screen bg-base-200 mt-20">
       {/* Meeting Options */}
       <div className="flex justify-center gap-6">
         <MeetingCard icon={<Plus />} title="Instant Meeting" />
-        <MeetingCard icon={<Video />} title="Join Meeting" />
+        <MeetingCard
+          icon={<Video />}
+          title="Join Meeting"
+          onClick={handleJoinMeeting}
+        />
         <MeetingCard icon={<Monitor />} title="Later Meeting" />
         <MeetingCard
           icon={<Calendar />}

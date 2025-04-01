@@ -34,7 +34,7 @@ const ScheduleMeetingForm = ({ isOpen, onClose, onSave }) => {
     }
 
     const baseUrl = window.location.origin;
-    const meetingUrl = `${baseUrl}/api/meetings/${meetingCode}`;
+    const meetingUrl = `${baseUrl}/api/meetings/Meeting-live/${meetingCode}`;
 
     // Pass meeting data to parent
     let formattedDate = "";
