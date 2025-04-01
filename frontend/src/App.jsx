@@ -1,5 +1,5 @@
 import React, { Suspense, useEffect } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { Loader } from "lucide-react";
 
@@ -7,11 +7,14 @@ import Navbar from "./components/Navbar";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
-//import PreMeetingScreen from "./components/PreMeetingScreen";
+import PreMeetingScreen from "./pages/PreMeetingScreen";
+import AskForJoin from "./pages/AskForJoin";
+import MeetingLive from "./pages/MeetingLive";
 import { useAuthStore } from "./store/useAuthStore";
 
 const App = () => {
   const { authUser, checkAuth, isCheckingAuth } = useAuthStore();
+  const location = useLocation();
 
   useEffect(() => {
     checkAuth();
@@ -25,9 +28,11 @@ const App = () => {
     );
   }
 
+  const hideNavbar = location.pathname.startsWith("/Meeting-live");
+
   return (
     <div className="bg-[#282525] bg-opacity-35 min-h-screen w-full overflow-x-hidden">
-      <Navbar />
+      {!hideNavbar && <Navbar />}
       <Routes>
         <Route
           path="/"
@@ -41,7 +46,18 @@ const App = () => {
           path="/login"
           element={!authUser ? <LoginPage /> : <Navigate to="/" />}
         />
-        {/*<Route path="/pre-meeting-screen" element={<PreMeetingScreen />} />*/}
+        <Route
+          path="/pre-meeting-screen"
+          element={authUser ? <PreMeetingScreen /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/Ask-for-join"
+          element={authUser ? <AskForJoin /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/Meeting-live/:meetingCode?"
+          element={authUser ? <MeetingLive /> : <Navigate to="/login" />}
+        />
       </Routes>
       <Toaster />
     </div>

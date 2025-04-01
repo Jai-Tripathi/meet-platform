@@ -1,7 +1,17 @@
 import React from "react";
 import { Calendar, Clock, Video, X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useMeetingStore } from "../store/useMeetingStore";
 
 const ScheduledMeetingCard = ({ meetings, onDelete }) => {
+  const navigate = useNavigate();
+  const { setSelectedMeeting } = useMeetingStore();
+
+  const handleMeetingClick = (meeting) => {
+    setSelectedMeeting(meeting);
+    navigate("/pre-meeting-screen");
+  };
+
   return (
     <div className="self-start ml-22">
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 w-260">
@@ -20,19 +30,20 @@ const ScheduledMeetingCard = ({ meetings, onDelete }) => {
               >
                 <X size={16} />
               </button>
-
-              <div className="flex justify-between">
-                <h3 className="text-white font-medium">{meeting.title}</h3>
-              </div>
-              <p className="text-gray-400 text-sm">{meeting.description}</p>
-              <div className="flex justify-between ">
-                <div className="flex items-center text-gray-300 text-sm mt-1">
-                  <Calendar size={12} className="mr-1" />
-                  <span>{meeting.date}</span>
+              <div onClick={() => handleMeetingClick(meeting)}>
+                <div className="flex justify-between">
+                  <h3 className="text-white font-medium">{meeting.title}</h3>
                 </div>
-                <div className="flex items-center text-gray-300 text-sm mt-1">
-                  <Clock size={12} className="mt-1 mr-1" />
-                  <span>{meeting.time}</span>
+                <p className="text-gray-400 text-sm">{meeting.description}</p>
+                <div className="flex justify-between ">
+                  <div className="flex items-center text-gray-300 text-sm mt-1">
+                    <Calendar size={12} className="mr-1" />
+                    <span>{meeting.date}</span>
+                  </div>
+                  <div className="flex items-center text-gray-300 text-sm mt-1">
+                    <Clock size={12} className="mt-1 mr-1" />
+                    <span>{meeting.time}</span>
+                  </div>
                 </div>
               </div>
             </div>

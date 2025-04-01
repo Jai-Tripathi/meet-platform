@@ -10,6 +10,21 @@ const meetingSchema = new mongoose.Schema(
         time: { type: String, required: true },
         date: { type: String, required: true },
         isInstant: { type: Boolean, default: false },
+        participants: [
+            {
+                user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+                status: { type: String, enum: ["waiting", "joined", "denied"], default: "waiting" },
+                joinedAt: { type: Date },
+            },
+        ],
+        status: { type: String, enum: ["scheduled", "ongoing", "ended"], default: "scheduled" },
+        settings: {
+            allowScreenShare: { type: Boolean, default: true },
+            allowUnmute: { type: Boolean, default: true },
+            allowVideo: { type: Boolean, default: true },
+            allowChat: { type: Boolean, default: true },
+            allowRaiseHand: { type: Boolean, default: true },
+        },
     },
     { timestamps: true }
 

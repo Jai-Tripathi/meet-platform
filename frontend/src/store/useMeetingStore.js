@@ -4,7 +4,10 @@ import toast from "react-hot-toast";
 
 export const useMeetingStore = create((set) => ({
     meetings: [],
+    selectedMeeting: null,
     loading: false,
+
+    setSelectedMeeting: (meeting) => set({ selectedMeeting: meeting }),
 
     fetchMeetings: async () => {
         set({ loading: true });
