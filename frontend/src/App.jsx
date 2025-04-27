@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect } from "react";
+import React, { Suspense, useEffect, useRef } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { Loader } from "lucide-react";
@@ -13,14 +13,35 @@ import AskForJoin from "./pages/AskForJoin";
 import MeetingLive from "./pages/MeetingLive";
 
 import { useAuthStore } from "./store/useAuthStore";
+import { useMeetingStore } from "./store/useMeetingStore";
 
 const App = () => {
   const { authUser, checkAuth, isCheckingAuth } = useAuthStore();
   const location = useLocation();
+  const hasCheckedAuth = useRef(false); // Track if checkAuth ran
+  const { joinMeeting } = useMeetingStore();
 
   useEffect(() => {
-    checkAuth();
+    if (hasCheckedAuth.current) {
+      console.log("App.js: Skipping duplicate checkAuth");
+      return;
+    }
+
+    console.log("App.js: Running checkAuth");
+    hasCheckedAuth.current = true;
+    checkAuth().catch((err) => {
+      console.log("App.js: checkAuth failed:", err.response?.status);
+    });
   }, [checkAuth]);
+
+  useEffect(() => {
+    const code = window.location.pathname.split("/")[2];
+    const { meetingCode, myStatus } = useMeetingStore.getState();
+    if (code && !meetingCode && myStatus !== "joined") {
+      console.log("Joining meeting from route:", code);
+      joinMeeting(code);
+    }
+  }, [joinMeeting]);
 
   if (isCheckingAuth && !authUser) {
     return (

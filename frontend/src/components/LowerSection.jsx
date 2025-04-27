@@ -13,19 +13,24 @@ import { MdOutlineScreenShare } from "react-icons/md";
 import { PiMicrophoneSlashLight } from "react-icons/pi";
 import { CiVideoOff } from "react-icons/ci";
 import Picker from "emoji-picker-react";
+import { useAuthStore } from "../store/useAuthStore";
 
 const LowerSection = ({
   participants,
-  socket,
   toggleMic,
   toggleCamera,
   startScreenShare,
+  stopScreenShare,
   togglePeople,
   toggleChat,
   setIsModalOpen,
   openLeaveModal,
+  isMicOn,
+  isVideoOn,
+  isScreenSharing,
 }) => {
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+  const { authUser } = useAuthStore();
 
   const toggleEmojiPicker = () => {
     setIsEmojiPickerOpen((prev) => !prev);
@@ -41,38 +46,28 @@ const LowerSection = ({
       <div className="flex gap-2">
         <button
           className={`p-2 rounded-lg text-white ${
-            participants[socket.id]?.mic ? "bg-green-500" : "bg-gray-600"
+            isMicOn ? "bg-green-500" : "bg-gray-600"
           }`}
           onClick={toggleMic}
         >
-          {participants[socket.id]?.mic ? (
-            <FaMicrophone />
-          ) : (
-            <PiMicrophoneSlashLight size={18} />
-          )}
+          {isMicOn ? <FaMicrophone /> : <PiMicrophoneSlashLight size={18} />}
         </button>
         <button
           className={`p-2 rounded-lg text-white ${
-            participants[socket.id]?.video ? "bg-green-500" : "bg-gray-600"
+            isVideoOn ? "bg-green-500" : "bg-gray-600"
           }`}
           onClick={toggleCamera}
         >
-          {participants[socket.id]?.video ? (
-            <FaVideo />
-          ) : (
-            <CiVideoOff size={18} />
-          )}
+          {isVideoOn ? <FaVideo /> : <CiVideoOff size={18} />}
         </button>
         <button className="bg-gray-600 p-2 rounded-lg text-white">
           <FaDesktop />
         </button>
         <button
           className={`p-2 rounded-lg text-white ${
-            participants[socket.id]?.screenSharing
-              ? "bg-green-500"
-              : "bg-gray-600"
+            isScreenSharing ? "bg-green-500" : "bg-gray-600"
           }`}
-          onClick={startScreenShare}
+          onClick={isScreenSharing ? stopScreenShare : startScreenShare}
         >
           <MdOutlineScreenShare />
         </button>

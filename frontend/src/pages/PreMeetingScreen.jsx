@@ -1,8 +1,14 @@
 import { useState, useEffect, useRef } from "react";
-import { Mic, MicOff, Video, VideoOff } from "lucide-react";
+import {
+  Mic,
+  MicOff,
+  Video,
+  VideoOff,
+  ClipboardCheck,
+  Copy,
+} from "lucide-react";
 import { useMeetingStore } from "../store/useMeetingStore";
 import { useAuthStore } from "../store/useAuthStore";
-import { axiosInstance } from "../lib/axios";
 import { useNavigate } from "react-router-dom";
 const PreMeetingScreen = () => {
   const navigate = useNavigate();
@@ -10,9 +16,10 @@ const PreMeetingScreen = () => {
   const [micOn, setMicOn] = useState(true);
   const [videoOn, setVideoOn] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
-  const { selectedMeeting } = useMeetingStore();
+  const { selectedMeeting, joinMeeting } = useMeetingStore();
   const { socket } = useAuthStore();
 
   useEffect(() => {
@@ -32,6 +39,18 @@ const PreMeetingScreen = () => {
     getMedia(); // Get media on initial load
     return () => stopMediaStream(); // Cleanup on unmount
   }, []);
+
+  const copyToClipboardCode = () => {
+    navigator.clipboard.writeText(selectedMeeting.meetingCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000); // Reset after 2 seconds
+  };
+
+  const copyToClipboardUrl = () => {
+    navigator.clipboard.writeText(selectedMeeting.meetingUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000); // Reset after 2 seconds
+  };
 
   const getMedia = async () => {
     if (loading) return;
@@ -131,9 +150,8 @@ const PreMeetingScreen = () => {
   };
 
   const handleJoin = async () => {
-    await axiosInstance.post("/meetings/join", {
-      meetingCode: selectedMeeting.meetingCode,
-    });
+    console.log("pre-meeting-screen socket:", socket);
+    joinMeeting(selectedMeeting.meetingCode);
     navigate(`/Meeting-live/${selectedMeeting.meetingCode}`);
   };
 
@@ -170,9 +188,27 @@ const PreMeetingScreen = () => {
           </button>
         </div>
 
-        <div className="mt-4 text-white">
-          <h3 className="text-lg">{selectedMeeting.meetingCode}</h3>
-          <h3 className="text-lg">{selectedMeeting.meetingUrl}</h3>
+        <div className="flex items-center justify-center gap-2  p-2 w-full mt-4">
+          <button
+            onClick={copyToClipboardCode}
+            className="text-gray-300 hover:text-white"
+          >
+            {copied ? <ClipboardCheck size={18} /> : <Copy size={18} />}
+          </button>
+          <span className="text-sm font-mono text-gray-300">
+            {selectedMeeting.meetingCode}
+          </span>
+        </div>
+        <div className="flex items-center justify-center gap-2  p-2 w-full mt-4">
+          <button
+            onClick={copyToClipboardUrl}
+            className="text-gray-300 hover:text-white"
+          >
+            {copied ? <ClipboardCheck size={18} /> : <Copy size={18} />}
+          </button>
+          <span className="text-sm font-mono text-gray-300">
+            {selectedMeeting.meetingUrl}
+          </span>
         </div>
 
         {/* Join Button */}

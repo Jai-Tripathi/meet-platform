@@ -66,13 +66,22 @@ export const useAuthStore = create((set, get) => ({
 
     connectSocket: () => {
         const { authUser } = get();
+
         if (!authUser || get().socket?.connected) return;
+
 
         const socket = io(BASE_URL, {
             query: { userId: authUser._id },
+            reconnection: true,
+            reconnectionAttempts: 5
         });
         socket.connect();
-        set({ socket });
+        console.log("Connected to socket", socket);
+        socket.on("connect", () => console.log("Socket connected:", socket.id));
+        socket.on("disconnect", (reason) => console.log("Socket disconnected:", socket.id, "Reason:", reason));
+        socket.on("reconnect", (attempt) => console.log("Socket reconnected:", socket.id, "after attempt:", attempt));
+        socket.on("error", (err) => console.error("Socket error:", err));
+        set({ socket: socket });
     },
 
     disconnectSocket: () => {

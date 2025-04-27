@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/useAuthStore";
 import { useMeetingStore } from "../store/useMeetingStore";
 import Popup from "../components/JoinMeetPopup";
-import { axiosInstance } from "../lib/axios";
 
 const AskForJoin = () => {
   const [micOn, setMicOn] = useState(true);
@@ -15,7 +14,7 @@ const AskForJoin = () => {
   const streamRef = useRef(null);
   const { socket } = useAuthStore();
   const navigate = useNavigate();
-  const { setSelectedMeeting } = useMeetingStore();
+  const { joinMeeting } = useMeetingStore();
 
   useEffect(() => {
     socket.emit("join-lobby");
@@ -142,9 +141,7 @@ const AskForJoin = () => {
 
   const handleJoin = async (code) => {
     console.log("Handle Join meet :", code);
-    await axiosInstance.post("/meetings/join", { meetingCode: code });
-    const meeting = await axiosInstance.get(`/meetings/${code}`);
-    setSelectedMeeting(meeting.data);
+    joinMeeting(code);
     navigate(`/Meeting-live/${code}`); // Navigate to the meeting room with provided code
     setIsPopupOpen(false); // Close the popup after joining
   };

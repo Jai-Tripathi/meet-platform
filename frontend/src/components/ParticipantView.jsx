@@ -1,75 +1,122 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { PiMicrophoneSlashLight } from "react-icons/pi";
 import { FaMicrophone } from "react-icons/fa";
+import { useMeetingStore } from "../store/useMeetingStore";
 
 const ParticipantView = ({ selected, participants, toggleParticipantMic }) => {
+  const videoRefs = useRef({});
+  // Access streams directly from store if needed
+  const streams = useMeetingStore((state) => state.streams);
+
+  // Assign streams to video elements when streams change
+  useEffect(() => {
+    Object.entries(participants).forEach(([id, participant]) => {
+      let stream = streams[id]?.screen || streams[id]?.video;
+      const videoElement = videoRefs.current[id];
+
+      if (stream && videoElement && videoElement.srcObject !== stream) {
+        console.log(`Assigning stream for ${id}:`, stream);
+        videoElement.srcObject = stream;
+        videoElement.play().catch((err) => {
+          console.error(`Error playing video for ${id}:`, err);
+        });
+      } else if (!stream && videoElement && videoElement.srcObject) {
+        // Clear srcObject if stream is removed
+        videoElement.srcObject = null;
+        console.log(`Clearing stream for ${id}`);
+      }
+    });
+  }, [streams, participants, selected]);
+
+  useEffect(() => {
+    if (Object.keys(participants).length > 0) {
+      console.log("ParticipantView, participants:", participants);
+    }
+    Object.entries(participants).forEach(([id, participant]) => {
+      // Access the stream from the store
+      const stream = streams?.[id]?.video || participant.stream;
+      console.log("ParticipantView, stream:", stream);
+      console.log("ParticipantView, streams:", streams);
+    });
+  }, [participants, streams]);
+
   return (
     <>
       {/* Sidebar for Mobile */}
       {selected === "Sidebar" && (
         <div className="absolute bottom-4 right-4 w-[34%] h-[30%] bg-gray-800 rounded-lg overflow-hidden lg:hidden">
-          {Object.values(participants)
-            .slice(0, 1)
-            .map((participant, index) => (
-              <div key={index} className="relative w-full h-full">
-                {participant.video ? (
-                  <video
-                    autoPlay
-                    muted
-                    className="w-full h-full object-cover"
-                  ></video>
-                ) : (
-                  <img
-                    src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSlSJ7DEurXpFM8ZHmm1rjDaUBW9uiZjrPwWQ&s"
-                    alt={participant.name}
-                    className="w-full h-full object-cover"
-                  />
-                )}
-                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 p-2 flex justify-between items-center">
-                  <span className="text-sm font-semibold text-white">
-                    {participant.name}
-                  </span>
-                  <span className="text-xs bg-gray-700 text-white px-2 py-1 rounded">
-                    {participant.mic ? (
-                      <PiMicrophoneSlashLight size={18} />
-                    ) : (
-                      "🔇"
-                    )}
-                  </span>
+          {Object.entries(participants).map(([id, participant]) => (
+            <div key={id} className="relative w-full h-full">
+              {participant?.video ? (
+                <video
+                  ref={(video) => {
+                    if (video) {
+                      videoRefs.current[id] = video;
+                    }
+                  }}
+                  autoPlay
+                  muted
+                  className="w-full h-full object-cover"
+                ></video>
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-gray-800 text-white text-4xl font-semibold rounded-md">
+                  {participant.name[0].toUpperCase()}
                 </div>
+              )}
+              <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 p-2 flex justify-between items-center">
+                <span className="text-sm font-semibold text-white">
+                  {participant.name}
+                </span>
+                <button
+                  className="text-xs bg-gray-700 text-white px-2 py-1 rounded"
+                  onClick={() => toggleParticipantMic(id)}
+                >
+                  {participant.mic ? <FaMicrophone /> : "🔇"}
+                </button>
               </div>
-            ))}
+            </div>
+          ))}
         </div>
       )}
 
       {/* Sidebar for Desktop */}
       {selected === "Sidebar" && (
         <div className="absolute hidden left-[80%] lg:flex flex-col w-[20%] text-white p-4 overflow-y-auto gap-4">
-          {Object.values(participants).map((participant, index) => (
+          {Object.entries(participants).map(([id, participant]) => (
             <div
-              key={index}
+              key={id}
               className="relative bg-gray-800 rounded-lg overflow-hidden"
             >
-              {participant.video ? (
-                <video autoPlay muted className="w-full object-cover"></video>
+              {participant?.video ? (
+                <video
+                  ref={(video) => {
+                    if (video) {
+                      videoRefs.current[id] = video;
+                    }
+                  }}
+                  autoPlay
+                  muted
+                  className="w-full object-cover"
+                ></video>
               ) : (
-                <img
-                  src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSlSJ7DEurXpFM8ZHmm1rjDaUBW9uiZjrPwWQ&s"
-                  alt={participant.name}
-                  className="w-full h-32 object-cover"
-                />
+                <div className="w-full h-32 flex items-center justify-center bg-gray-800 text-white text-4xl font-semibold rounded-md">
+                  {participant.name[0].toUpperCase()}
+                </div>
               )}
               <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 p-2 flex justify-between items-center">
                 <span className="text-sm font-semibold">
                   {participant.name}
                 </span>
-                <span className="text-xs bg-gray-700 text-white px-2 py-1 rounded">
+                <button
+                  className="text-xs bg-gray-700 text-white px-2 py-1 rounded"
+                  onClick={() => toggleParticipantMic(id)}
+                >
                   {participant.mic ? (
-                    <PiMicrophoneSlashLight size={18} />
+                    <FaMicrophone />
                   ) : (
-                    "🔇"
+                    <PiMicrophoneSlashLight />
                   )}
-                </span>
+                </button>
               </div>
             </div>
           ))}
@@ -84,18 +131,21 @@ const ParticipantView = ({ selected, participants, toggleParticipantMic }) => {
               key={id}
               className="relative bg-gray-800 rounded-lg overflow-hidden flex items-center justify-center"
             >
-              {participant.video ? (
+              {participant?.video ? (
                 <video
+                  ref={(video) => {
+                    if (video) {
+                      videoRefs.current[id] = video;
+                    }
+                  }}
                   autoPlay
                   muted
                   className="w-full h-full object-cover"
                 ></video>
               ) : (
-                <img
-                  src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSlSJ7DEurXpFM8ZHmm1rjDaUBW9uiZjrPwWQ&s"
-                  alt={participant.name}
-                  className="w-full h-full object-cover"
-                />
+                <div className="w-full h-full flex items-center justify-center bg-gray-800 text-white text-7xl font-semibold rounded-md">
+                  {participant.name[0].toUpperCase()}
+                </div>
               )}
               <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 p-2 flex justify-between items-center">
                 <span className="text-sm font-semibold text-white">
@@ -106,9 +156,9 @@ const ParticipantView = ({ selected, participants, toggleParticipantMic }) => {
                   onClick={() => toggleParticipantMic(id)}
                 >
                   {participant.mic ? (
-                    <PiMicrophoneSlashLight />
-                  ) : (
                     <FaMicrophone />
+                  ) : (
+                    <PiMicrophoneSlashLight />
                   )}
                 </button>
               </div>

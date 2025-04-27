@@ -23,7 +23,12 @@ export function getParticipantSocketId(meetingCode, userId) {
 }
 
 io.on("connection", (socket) => {
-    console.log("A user connected", socket.id);
+    if (socket.connected) {
+        console.log("User connected (backend connection)", socket.id);
+    }
+    if (!socket?.connected) {
+        console.error("Socket not connected (backend connection)");
+    }
 
     // User joins a meeting
     socket.on("joinMeeting", async ({ meetingCode, userId }) => {
@@ -31,6 +36,7 @@ io.on("connection", (socket) => {
             socket.emit("error", "Meeting code and user ID are required");
             return;
         }
+        console.log("Join meeting of code : ", meetingCode)
 
         // Join the meeting room
         socket.join(meetingCode);
@@ -49,24 +55,90 @@ io.on("connection", (socket) => {
             socket.emit("error", "Meeting not found");
             return;
         }
+        console.log(" Join Meeting event (backend) userId: ", userId);
 
-        const participant = meeting.participants.find((p) => p.user.toString() === userId);
+        {/*const participant = meeting.participants.find((p) => p.user.toString() === userId.toString());
         if (!participant || participant.status !== "joined") {
+            console.log("not allowed to join yet (backend)")
+
             socket.emit("error", "Not allowed to join yet");
             return;
-        }
+        }*/}
 
         // Notify all in the meeting about updated participants
-        io.to(meetingCode).emit("participantUpdate", meeting.participants);
+        // io.to(meetingCode).emit("participantUpdate", meeting.participants);
 
+        // Request existing users to send their media states    
+        socket.to(meetingCode).emit("requestParticipantStates");
+
+        socket.on("shareParticipantState", ({ participantId, mic, video, screenSharing }) => {
+            io.to(meetingCode).emit("updateParticipantState", { participantId, mic, video, screenSharing });
+        });
+
+        // Toggle Mic
+        socket.on("toggleMic", ({ participantId, mic }) => {
+            console.log("toggleMic received:", { participantId, mic });
+            io.to(meetingCode).emit("toggleMic", { participantId, mic });
+            io.to(meetingCode).emit("streamUpdate", { userId: participantId, mic });
+        });
+
+        // Toggle Video
+        socket.on("toggleVideo", ({ participantId, video }) => {
+            console.log("toggleVideo received:", { participantId, video });
+            io.to(meetingCode).emit("toggleVideo", { participantId, video });
+            io.to(meetingCode).emit("streamUpdate", { userId: participantId, video });
+        });
+
+        socket.on("streamUpdate", ({ userId, meetingCode, mic, video, screenSharing }) => {
+            socket.to(meetingCode).emit("streamUpdate", { userId, mic, video, screenSharing });
+        });
+
+        { /*
         // WebRTC signaling
         socket.on("signal", (data) => {
             io.to(meetingCode).emit("signal", { userId, signal: data.signal });
         });
+        */}
+
+        socket.on("webrtc-offer", ({ to, from, offer, meetingCode }) => {
+            console.log("webrtc-offer from", from, "to", to);
+            const socketId = getParticipantSocketId(meetingCode, to);
+            if (socketId) {
+                io.to(socketId).emit("webrtc-offer", { from, to, offer });
+            } else {
+                console.error("No socket found for user:", to);
+            }
+        });
+
+        socket.on("webrtc-answer", ({ to, from, answer, meetingCode }) => {
+            console.log("webrtc-answer from", from, "to", to);
+            const socketId = getParticipantSocketId(meetingCode, to);
+            if (socketId) {
+                io.to(socketId).emit("webrtc-answer", { from, to, answer });
+            } else {
+                console.error("No socket found for user:", to);
+            }
+        });
+
+        socket.on("ice-candidate", ({ to, from, candidate, meetingCode }) => {
+            console.log("ice-candidate from", from, "to", to);
+            const socketId = getParticipantSocketId(meetingCode, to);
+            if (socketId) {
+                io.to(socketId).emit("ice-candidate", { from, to, candidate });
+            } else {
+                console.error("No socket found for user:", to);
+            }
+        });
 
         // Chat
         socket.on("sendMessage", (message) => {
-            io.to(meetingCode).emit("newMessage", { userId, message, timestamp: new Date() });
+            console.log("sendMessage received:", message);
+            io.to(meetingCode).emit("newMessage", {
+                sender: message.sender, // Use sender name directly
+                text: message.text,     // Use text directly
+                userId: userId,         // Optional: keep userId for reference
+                timestamp: new Date(),
+            });
         });
 
         // Raise Hand
@@ -75,13 +147,70 @@ io.on("connection", (socket) => {
         });
 
         // Screen Share Toggle
-        socket.on("toggleScreenShare", (isSharing) => {
+        socket.on("screenShareToggled", (userId, isSharing) => {
+            console.log("screenShareToggled received (Socket.lib):", { userId, isSharing });
             io.to(meetingCode).emit("screenShareToggled", { userId, isSharing });
+            io.to(meetingCode).emit("streamUpdate", { userId, screenSharing: isSharing });
         });
 
-        // Handle disconnect
-        socket.on("disconnect", async () => {
-            console.log("A user disconnected", socket.id);
+        socket.on("startScreenShare", ({ userId }) => {
+
+            if (meeting) {
+                console.log("startScreenShare received in backend(participants):", meeting.participants);
+                const participant = meeting.participants.find((p) => p.user.toString() === userId.toString());
+                console.log("startScreenShare received in backend(participant):", participant);
+                if (participant) {
+                    participant.screenSharing = true;
+                    io.to(meetingCode).emit("screenShareToggled", {
+                        userId: participant.user,
+                        isSharing: true,
+                    });
+                    {/*io.to(meetingCode).emit("participantUpdate", {
+                        userId: participant.user,
+                        name: participant.name,
+                        status: participant.status,
+                        mic: participant.mic,
+                        video: participant.video,
+                        screenSharing: true,
+                    });*/}
+                }
+            }
+        });
+
+        socket.on("stopScreenShare", ({ userId }) => {
+
+            if (meeting) {
+                const participant = meeting.participants.find((p) => p.user.toString() === userId.toString());
+                if (participant) {
+                    participant.screenSharing = false;
+                    io.to(meetingCode).emit("screenShareToggled", {
+                        userId: participant.user,
+                        isSharing: false,
+                    });
+                    {/*io.to(meetingCode).emit("participantUpdate", {
+                        userId: participant.user,
+                        name: participant.name,
+                        status: participant.status,
+                        mic: participant.mic,
+                        video: participant.video,
+                        screenSharing: false,
+                    });*/}
+                }
+            }
+        });
+
+        socket.on("leaveMeeting", async (data) => {
+            console.log("leaveMeeting received:", data);
+
+            if (!data || typeof data !== "object" || !data.meetingCode || !data.userId) {
+                console.error("Invalid leaveMeeting payload:", data);
+                socket.emit("error", "Invalid leaveMeeting data");
+                return;
+            }
+
+            const { meetingCode, userId } = data;
+
+
 
             if (meetingSocketMap[meetingCode] && meetingSocketMap[meetingCode][userId]) {
                 delete meetingSocketMap[meetingCode][userId];
@@ -91,31 +220,42 @@ io.on("connection", (socket) => {
                     delete meetingSocketMap[meetingCode];
                 }
 
-                // Update DB and notify others
-                constmeets = await Meeting.findOne({ meetingCode });
+                const meeting = await Meeting.findOne({ meetingCode });
                 if (meeting) {
                     const participantIdx = meeting.participants.findIndex(
-                        (p) => p.user.toString() === userId
+                        (p) => p.user.toString() === userId.toString()
                     );
                     if (participantIdx !== -1) {
                         meeting.participants.splice(participantIdx, 1);
                         await meeting.save();
-                        io.to(meetingCode).emit("participantUpdate", meeting.participants);
+                    }
+                    io.to(meetingCode).emit("participantUpdate", meeting.participants);
+
+                    // If host leaves, end the meeting
+                    if (meeting.host.toString() === userId.toString()) {
+                        console.log("Host leaving, ending meeting:", meetingCode);
+                        io.to(meetingCode).emit("meetingEnded");
+                        delete meetingSocketMap[meetingCode];
                     }
                 }
-
-                io.to(meetingCode).emit("participantUpdate", meeting.participants);
             }
+        });
+
+        // Handle meeting end
+        socket.on("endMeeting", ({ meetingCode }) => {
+            io.to(meetingCode).emit("meetingEnded");
+            if (meetingSocketMap[meetingCode]) {
+                delete meetingSocketMap[meetingCode];
+            }
+        });
+
+        // Handle disconnect
+        socket.on("disconnect", async () => {
+            console.log("A user disconnected", socket.id);
         });
     });
 
-    // Handle meeting end
-    socket.on("endMeeting", ({ meetingCode }) => {
-        io.to(meetingCode).emit("meetingEnded");
-        if (meetingSocketMap[meetingCode]) {
-            delete meetingSocketMap[meetingCode];
-        }
-    });
+
 });
 
 export { io, app, server };

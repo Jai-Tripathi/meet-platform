@@ -13,6 +13,7 @@ const meetingSchema = new mongoose.Schema(
         participants: [
             {
                 user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+                name: { type: String },
                 status: { type: String, enum: ["waiting", "joined", "denied"], default: "waiting" },
                 joinedAt: { type: Date },
             },

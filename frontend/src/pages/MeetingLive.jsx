@@ -11,27 +11,34 @@ import SettingModal from "../components/SettingModal";
 import LeaveModal from "../components/LeaveModal";
 import LowerSection from "../components/LowerSection";
 import ParticipantView from "../components/ParticipantView";
+import { Loader, ClipboardCheck, Copy } from "lucide-react";
 
 import { useAuthStore } from "../store/useAuthStore";
 import { useMeetingStore } from "../store/useMeetingStore";
-import { axiosInstance } from "../lib/axios";
 
 const MeetingLive = () => {
-  const { socket } = useAuthStore();
+  const { socket, authUser } = useAuthStore();
+  const [copied, setCopied] = useState(false);
+
   const navigate = useNavigate();
-  const { selectedMeeting } = useMeetingStore();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const {
+    selectedMeeting,
+    participants,
+    setParticipants,
+    waitingToJoin,
+    allowParticipant,
+    denyParticipant,
+    myStatus,
+    meetingCode,
+    setMyStatus,
+    renegotiatePeerConnection,
+  } = useMeetingStore();
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selected, setSelected] = useState("Spotlight");
   const [activeItem, setActiveItem] = useState("Change Layout");
-  const [participants, setParticipants] = useState({
-    1: { name: "John Doe", mic: true, video: false },
-    2: { name: "Jane Smith", mic: false, video: false },
-    3: { name: "Alice Johnson", mic: true, video: false },
-    4: { name: "Alice ", mic: true, video: false },
-  });
+  const [screenStream, setScreenStream] = useState(null);
 
-  const [userName, setUserName] = useState("");
   const tools = [
     "Share Screen",
     "Unmute",
@@ -49,13 +56,11 @@ const MeetingLive = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [timer, setTimer] = useState(0);
   const [isPeopleOpen, setIsPeopleOpen] = useState(false);
-  const [waitingToJoin, setWaitingToJoin] = useState([
-    { id: "4", name: "Jenny Wilson" },
-    { id: "5", name: "Jenny Wilson" },
-    { id: "6", name: "Jenny Wilson" },
-  ]);
+
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false); // Add state for LeaveModal
   const [isScreenSharing, setIsScreenSharing] = useState(false); // Add state for screen sharing
+  const [isMicOn, setIsMicOn] = useState(true); // Default to true to match getUserMedia
+  const [isVideoOn, setIsVideoOn] = useState(true);
 
   const layouts = [
     { name: "Auto", img: Frame1 },
@@ -64,40 +69,104 @@ const MeetingLive = () => {
     { name: "Tiled", img: Frame4 },
   ];
 
-  useEffect(() => {
-    navigator.mediaDevices
-      .getUserMedia({ video: true, audio: true })
-      .then((stream) => {
-        setLocalStream(stream);
-      })
-      .catch((err) => {
-        console.error("Error accessing media devices:", err);
-        alert("Please allow access to camera and microphone.");
-      });
-  }, []);
+  {
+    /*useEffect(() => {
+    const code = window.location.pathname.split("/")[2];
+    const { meetingCode, myStatus } = useMeetingStore.getState();
+    if (code && !meetingCode && myStatus !== "joined") {
+      console.log("Attempting to join meeting from route:", code);
+      joinMeeting(code);
+    }
+  }, [joinMeeting]);*/
+  }
 
   useEffect(() => {
-    navigator.mediaDevices
-      .getUserMedia({ video: true, audio: true })
-      .then((stream) => {
-        setLocalStream(stream);
-        socket.emit("join", { name: userName });
-      })
-      .catch((err) => {
-        console.error("Error accessing media devices:", err);
-        alert(
-          "Please allow access to your camera and microphone to join the meeting."
-        );
-      });
+    if (myStatus === "joined" && !localStream) {
+      console.log("Requesting media for joined user:", authUser._id);
+      navigator.mediaDevices
+        .getUserMedia({ video: true, audio: true })
+        .then((stream) => {
+          setLocalStream(stream);
 
+          // Add stream to useMeetingStore
+          useMeetingStore.getState().setLocalStream(authUser._id, stream);
+
+          // Sync track enabled states with UI
+          const audioTrack = stream.getAudioTracks()[0];
+          const videoTrack = stream.getVideoTracks()[0];
+          audioTrack.enabled = isMicOn;
+          videoTrack.enabled = isVideoOn;
+
+          socket.emit("updateParticipantState", {
+            participantId: authUser._id,
+            mic: isMicOn,
+            video: isVideoOn,
+            screenSharing: isScreenSharing,
+          });
+          // Initialize WebRTC connections with all participants
+          useMeetingStore.getState().initializeConnections();
+        })
+        .catch((err) => {
+          console.error("Error accessing media devices:", err);
+          alert("Please allow access to your camera and microphone.");
+        });
+    }
+    return () => {
+      if (localStream && myStatus !== "joined") {
+        localStream.getTracks().forEach((track) => track.stop());
+        setLocalStream(null);
+        useMeetingStore.getState().setLocalStream(authUser._id, null);
+      }
+      if (screenStream && myStatus !== "joined") {
+        screenStream.getTracks().forEach((track) => track.stop());
+        setScreenStream(null);
+        useMeetingStore.getState().setScreenStream(authUser._id, null);
+      }
+    };
+  }, [
+    myStatus,
+    localStream,
+    authUser,
+    socket,
+    screenStream,
+    isMicOn,
+    isVideoOn,
+    isScreenSharing,
+  ]);
+
+  useEffect(() => {
+    if (!socket?.connected) return;
+    console.log("requesting participant states");
+
+    socket.on("requestParticipantStates", () => {
+      if (localStream) {
+        //const audioTrack = localStream.getAudioTracks()[0];
+        //const videoTrack = localStream.getVideoTracks()[0];
+
+        socket.emit("shareParticipantState", {
+          participantId: authUser._id,
+          mic: isMicOn,
+          video: isVideoOn,
+          screenSharing: isScreenSharing,
+        });
+      }
+    });
+
+    return () => {
+      socket.off("requestParticipantStates");
+    };
+  }, [socket, localStream, authUser, isScreenSharing, isMicOn, isVideoOn]);
+
+  useEffect(() => {
     socket.on("init", (state) => {
       setParticipants(state.participants);
       setSelected(state.layout);
       setToggleStates(state.hostTools);
     });
 
-    socket.on("updateParticipants", (participants) => {
-      setParticipants(participants);
+    socket.on("participantUpdate", (participants) => {
+      console.log("MEETING LIVE PARTICIPANT UPDATE: ", participants);
+      setMyStatus(participants);
     });
 
     socket.on("updateLayout", (layout) => {
@@ -109,15 +178,32 @@ const MeetingLive = () => {
     });
 
     return () => {
-      socket.disconnect();
+      socket.off("init");
+      socket.off("participantUpdate");
+      socket.off("updateLayout");
+      socket.off("updateHostTools");
     };
-  }, []);
+  }, [socket, setParticipants, setMyStatus]);
 
   useEffect(() => {
-    if (localStream && videoRef.current) {
+    if (localStream && videoRef.current && !isScreenSharing) {
+      console.log("Setting localStream to videoRef:", localStream);
       videoRef.current.srcObject = localStream;
+      videoRef.current.play().catch((err) => {
+        console.error("Error playing localStream:", err);
+      });
     }
-  }, [localStream]);
+  }, [localStream, isScreenSharing]);
+
+  useEffect(() => {
+    if (screenStream && videoRef.current && isScreenSharing) {
+      console.log("Setting ScreenStream to videoRef:", screenStream);
+      videoRef.current.srcObject = screenStream;
+      videoRef.current.play().catch((err) => {
+        console.error("Error playing localStream:", err);
+      });
+    }
+  }, [screenStream, isScreenSharing]);
 
   useEffect(() => {
     let interval = setInterval(() => {
@@ -127,27 +213,9 @@ const MeetingLive = () => {
   }, []);
 
   useEffect(() => {
-    socket.on("usernameTaken", () => {
-      alert("The username is already taken. Please choose a different one.");
-    });
-
-    return () => {
-      socket.off("usernameTaken");
-    };
-  }, []);
-
-  useEffect(() => {
-    socket.on("updateParticipants", (updatedParticipants) => {
-      setParticipants(updatedParticipants); // Ensure participants are updated correctly
-    });
-
-    return () => {
-      socket.off("updateParticipants"); // Cleanup listener
-    };
-  }, []);
-
-  useEffect(() => {
+    if (!socket?.connected) return;
     socket.on("startScreenShare", ({ userId }) => {
+      console.log("START SCREEN SHARE EVENT:", userId);
       setParticipants((prev) => ({
         ...prev,
         [userId]: { ...prev[userId], isScreenSharing: true },
@@ -175,21 +243,45 @@ const MeetingLive = () => {
       socket.off("startScreenShare");
       socket.off("stopScreenShare");
     };
-  }, [participants]);
+  }, [participants, setParticipants, socket]);
 
-  const stopParticipantScreenShare = (userId) => {
-    if (participants[userId]?.isScreenSharing) {
-      socket.emit("stopScreenShare", { userId }); // Notify others to stop screen sharing
-      setParticipants((prev) => ({
-        ...prev,
-        [userId]: { ...prev[userId], isScreenSharing: false }, // Update local state
-      }));
-      alert(
-        `${
-          participants[userId]?.name || "A participant"
-        }'s screen sharing has been stopped.`
-      );
-    }
+  useEffect(() => {
+    if (!socket?.connected) return;
+
+    // Setup WebRTC signaling event handlers
+    socket.on("webrtc-offer", (data) => {
+      console.log("OFFER in Meeting Live:", data);
+      useMeetingStore.getState().handleOffer(data);
+    });
+
+    socket.on("webrtc-answer", (data) => {
+      console.log("ANSWER in Meeting Live:", data);
+      useMeetingStore.getState().handleAnswer(data);
+    });
+
+    socket.on("ice-candidate", (data) => {
+      console.log("ICE CANDIDATE in Meeting Live:", data);
+
+      useMeetingStore.getState().handleIceCandidate(data);
+    });
+
+    socket.on("participant-left", ({ userId }) => {
+      console.log("PARTICIPANT LEFT in Meeting Live:", userId);
+      useMeetingStore.getState().cleanupPeerConnection(userId);
+    });
+
+    return () => {
+      socket.off("webrtc-offer");
+      socket.off("webrtc-answer");
+      socket.off("ice-candidate");
+      socket.off("participant-left");
+    };
+  }, [socket]);
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(meetingCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000); // Reset after 2 seconds
   };
 
   const formatTime = (seconds) => {
@@ -207,51 +299,70 @@ const MeetingLive = () => {
   };
 
   const toggleMic = () => {
+    console.log("TOGGLE MIC:", authUser._id);
     if (localStream) {
       const audioTrack = localStream.getAudioTracks()[0];
       audioTrack.enabled = !audioTrack.enabled;
-      setParticipants((prev) => ({
-        ...prev,
-        [socket.id]: { ...prev[socket.id], mic: audioTrack.enabled },
-      }));
-      socket.emit("toggle", { tool: "mic", state: audioTrack.enabled });
+      setIsMicOn(audioTrack.enabled);
+      socket.emit("toggleMic", {
+        participantId: authUser._id,
+        mic: audioTrack.enabled,
+      });
+    } else {
+      console.error("No localStream available to toggle mic");
     }
   };
 
   const toggleCamera = () => {
+    console.log("TOGGLE CAMERA:", authUser._id);
     if (localStream) {
       const videoTrack = localStream.getVideoTracks()[0];
       videoTrack.enabled = !videoTrack.enabled;
-      setParticipants((prev) => ({
-        ...prev,
-        [socket.id]: { ...prev[socket.id], video: videoTrack.enabled },
-      }));
-      socket.emit("toggle", { tool: "video", state: videoTrack.enabled });
+      setIsVideoOn(videoTrack.enabled);
+      socket.emit("toggleVideo", {
+        participantId: authUser._id,
+        video: videoTrack.enabled,
+      });
+    } else {
+      console.error("No localStream available to toggle camera");
     }
   };
 
   const startScreenShare = async () => {
     try {
-      const screenStream = await navigator.mediaDevices.getDisplayMedia({
+      const newScreenStream = await navigator.mediaDevices.getDisplayMedia({
         video: true,
         audio: true,
       });
       setIsScreenSharing(true); // Set screen sharing state to true
-      socket.emit("startScreenShare", { userId: socket.id }); // Notify others about screen sharing
+      setScreenStream(newScreenStream);
+
+      // Add screen stream to useMeetingStore
+      useMeetingStore.getState().setScreenStream(authUser._id, newScreenStream);
+
+      console.log("Start screen share UserId:", authUser._id);
+      socket.emit("startScreenShare", { userId: authUser._id }); // Notify others about screen sharing
 
       // Assign the screen stream to the video element
       if (videoRef.current) {
-        videoRef.current.srcObject = screenStream; // Assign the screen stream
+        videoRef.current.srcObject = newScreenStream; // Assign the screen stream
+        console.log(
+          "Screen stream set:",
+          newScreenStream.getVideoTracks()[0],
+          videoRef.current.srcObject
+        );
         videoRef.current.onloadedmetadata = () => {
+          console.log("Screen stream metadata loaded:", videoRef.current);
           videoRef.current.play().catch((err) => {
+            console.log("Error playing screen video:", err);
             console.error("Error playing shared screen video:", err);
           }); // Ensure the video starts playing
         };
-      }
 
-      // Handle when the user stops sharing
-      const screenTrack = screenStream.getVideoTracks()[0];
-      screenTrack.onended = () => stopScreenShare(); // Stop screen sharing when the user stops it
+        // Handle when the user stops sharing
+        const screenTrack = newScreenStream.getVideoTracks()[0];
+        screenTrack.onended = () => stopScreenShare(); // Stop screen sharing when the user stops it
+      }
 
       // Show the user's camera feed in a smaller thumbnail
       navigator.mediaDevices
@@ -260,7 +371,9 @@ const MeetingLive = () => {
           const cameraVideoRef = document.getElementById("camera-thumbnail");
           if (cameraVideoRef) {
             cameraVideoRef.srcObject = cameraStream; // Assign the camera stream to the thumbnail
+            console.log("camera stream set:", cameraStream);
             cameraVideoRef.onloadedmetadata = () => {
+              console.log("Camera stream metadata loaded:", cameraVideoRef);
               cameraVideoRef.play().catch((err) => {
                 console.error("Error playing camera video:", err);
               }); // Ensure the video starts playing
@@ -272,66 +385,58 @@ const MeetingLive = () => {
         });
     } catch (err) {
       console.error("Error starting screen share:", err);
+      console.log("Error starting screen share:", err);
+      setIsScreenSharing(false); // Reset screen sharing state on error
+      setScreenStream(null);
+      useMeetingStore.getState().setScreenStream(authUser._id, null);
     }
   };
 
   const stopScreenShare = () => {
+    if (screenStream) {
+      screenStream.getTracks().forEach((track) => track.stop());
+    }
     setIsScreenSharing(false); // Reset screen sharing state
-    socket.emit("stopScreenShare", { userId: socket.id }); // Notify others that screen sharing has stopped
+    setScreenStream(null);
+
+    // Remove screen stream from useMeetingStore
+    useMeetingStore.getState().setScreenStream(authUser._id, null);
+    socket.emit("stopScreenShare", { userId: authUser._id }); // Notify others that screen sharing has stopped
 
     // Revert to the camera feed
-    navigator.mediaDevices
-      .getUserMedia({ video: true, audio: true })
-      .then((stream) => {
-        setLocalStream(stream);
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream; // Assign the camera stream back to the main video area
-          videoRef.current.play(); // Ensure the video starts playing
-        }
-      })
-      .catch((err) => {
-        console.error("Error reverting to camera feed:", err);
-      });
+    if (localStream && videoRef.current) {
+      videoRef.current.srcObject = localStream;
+      videoRef.current.onloadedmetadata = () => {
+        videoRef.current.play().catch((err) => {
+          console.error("Error reverting to camera feed:", err);
+        });
+      };
+    }
   };
 
   const changeLayout = (layout) => {
     setSelected(layout);
     socket.emit("changeLayout", layout);
-
-    if (layout === "Sidebar") {
-      setIsSidebarOpen(true);
-    } else if (layout === "Tiled") {
-      setIsSidebarOpen(false); // Close sidebar for Tiled layout
-    }
   };
 
   const closeSidebar = () => {
-    setIsSidebarOpen(false);
     setIsModalOpen(false);
   };
 
-  const openModal = (item) => {
-    setIsModalOpen(true);
-    setIsSidebarOpen(true);
-    setActiveItem(
-      item === "Notifications" ? "Host Tools" : item || "Change Layout"
-    );
-  };
-
   const handleSignOut = async () => {
-    if (localStream) {
-      localStream.getTracks().forEach((track) => track.stop());
+    try {
+      if (localStream) {
+        localStream.getTracks().forEach((track) => track.stop());
+      }
+      console.log("Handle Sign Out:", selectedMeeting.meetingCode);
+      await useMeetingStore.getState().leaveMeeting();
+      setLocalStream(null);
+      setParticipants({});
+      setTimer(0);
+      navigate("/");
+    } catch (err) {
+      console.error("Error during signing out of meeting:", err);
     }
-    console.log("Handle Sign Out:", selectedMeeting.meetingCode);
-    await axiosInstance.post("/meetings/leave", {
-      meetingCode: selectedMeeting.meetingCode,
-    });
-    socket.emit("leaveMeeting");
-    setLocalStream(null);
-    setParticipants({});
-    setUserName("");
-    setTimer(0);
-    navigate("/");
   };
 
   const toggleChat = () => {
@@ -349,28 +454,15 @@ const MeetingLive = () => {
   };
 
   const handleAllow = (id) => {
-    const user = waitingToJoin.find((user) => user.id === id);
-    if (user) {
-      setParticipants((prev) => ({
-        ...prev,
-        [id]: { name: user.name, mic: false, video: false },
-      }));
-      setWaitingToJoin((prev) => prev.filter((user) => user.id !== id));
-    }
+    allowParticipant(id);
   };
 
   const handleDeny = (id) => {
-    setWaitingToJoin((prev) => prev.filter((user) => user.id !== id));
+    denyParticipant(id);
   };
 
   const toggleParticipantMic = (participantId) => {
-    setParticipants((prev) => ({
-      ...prev,
-      [participantId]: {
-        ...prev[participantId],
-        mic: !prev[participantId].mic, // Toggle the mic state
-      },
-    }));
+    console.log("TOGGLE PARTICIPANT MIC:", participantId);
 
     socket.emit("toggleMic", {
       participantId,
@@ -378,6 +470,14 @@ const MeetingLive = () => {
     }); // Notify the server
   };
 
+  if (myStatus === "waiting") {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader className="size-10 animate-spin text-amber-50" />
+        <div className="text-white">Waiting for host approval...</div>;
+      </div>
+    );
+  }
   return (
     <>
       <div className={`relative ${isModalOpen ? "blur-sm" : ""}`}>
@@ -387,8 +487,14 @@ const MeetingLive = () => {
           </nav>
           <div className="flex items-center gap-2 text-sm justify-center flex-1">
             <span className="text-gray-400 truncate max-w-[100px] sm:max-w-none">
-              {selectedMeeting.meetingCode}
+              {meetingCode}
             </span>{" "}
+            <button
+              onClick={copyToClipboard}
+              className="text-gray-300 hover:text-white"
+            >
+              {copied ? <ClipboardCheck size={18} /> : <Copy size={18} />}
+            </button>
             {/* Meeting link */}
           </div>
           <div className="flex items-center gap-2 text-sm">
@@ -435,14 +541,12 @@ const MeetingLive = () => {
                 ref={videoRef}
                 autoPlay
                 muted
-                className="w-full h-[75vh] object-cover rounded-lg lg:w-[90%] lg:h-[90%]"
+                className="w-full h-[75vh] object-cover rounded-lg lg:w-[90%] lg:h-[90%] "
               ></video>
             ) : (
-              <img
-                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSlSJ7DEurXpFM8ZHmm1rjDaUBW9uiZjrPwWQ&s"
-                alt="Live Meeting"
-                className="w-full h-[75vh] object-cover rounded-lg lg:w-[90%] lg:h-[90%]"
-              />
+              <div className="w-full h-[75vh] flex items-center justify-center bg-gray-800 text-white text-9xl font-bold rounded-lg lg:w-[90%] lg:h-[90%]">
+                {authUser.fullName[0].toUpperCase()}
+              </div>
             )}
           </div>
           {/* Participant View */}
@@ -455,7 +559,6 @@ const MeetingLive = () => {
           <ChatSection
             isChatOpen={isChatOpen}
             setIsChatOpen={setIsChatOpen}
-            userName={userName}
             socket={socket}
           />
           {/* People Section */}
@@ -479,6 +582,9 @@ const MeetingLive = () => {
           togglePeople={togglePeople}
           toggleChat={toggleChat}
           setIsModalOpen={setIsModalOpen}
+          isMicOn={isMicOn}
+          isVideoOn={isVideoOn}
+          isScreenSharing={isScreenSharing}
           openLeaveModal={() => setIsLeaveModalOpen(true)} // Correctly pass function to open LeaveModal
         />
       </div>

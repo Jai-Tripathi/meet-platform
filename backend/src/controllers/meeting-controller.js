@@ -97,6 +97,7 @@ export const joinMeeting = async (req, res) => {
     try {
         const { meetingCode } = req.body;
         const userId = req.user._id;
+        const name = req.user.fullName
 
         const meeting = await Meeting.findOne({ meetingCode });
         if (!meeting) {
@@ -104,16 +105,17 @@ export const joinMeeting = async (req, res) => {
         }
 
         const isHost = meeting.host.toString() === userId.toString();
-        let participant = meeting.participants.find((p) => p.user.toString() === userId);
+        let participant = meeting.participants.find((p) => p.user.toString() === userId.toString());
 
         if (!participant) {
             // Add user to participants
-            participant = { user: userId, status: isHost ? "joined" : "waiting" };
+            participant = { user: userId, name: name, status: isHost ? "joined" : "waiting" };
             meeting.participants.push(participant);
             if (isHost && meeting.status === "scheduled") {
                 meeting.status = "ongoing"; // Host starts the meeting
             }
             await meeting.save();
+            console.log("emit participant update in meeting: ", meeting.participants);
             io.to(meetingCode).emit("participantUpdate", meeting.participants);
         } else if (isHost && participant.status !== "joined") {
             // Ensure host is always "joined"
@@ -122,10 +124,12 @@ export const joinMeeting = async (req, res) => {
                 meeting.status = "ongoing";
             }
             await meeting.save();
+            console.log("emit participant update for host in meeting: ", meeting)
             io.to(meetingCode).emit("participantUpdate", meeting.participants);
         }
 
         res.status(200).json({
+            ...meeting.toObject(),
             meetingId: meeting._id,
             status: participant.status,
             iceServers,
@@ -177,12 +181,14 @@ export const endMeeting = async (req, res) => {
             return res.status(403).json({ message: "Not authorized or meeting not found" });
         }
 
+        // Notify all participants via Socket.IO
+        io.to(meetingCode).emit("meetingEnded");
+        console.log("Meeting end controller - CLEARING MEETING ");
+
         meeting.status = "ended";
         meeting.participants = []; // Clear participants
         await meeting.save();
 
-        // Notify all participants via Socket.IO
-        io.to(meetingCode).emit("meetingEnded");
         res.status(200).json({ message: "Meeting ended successfully" });
     } catch (err) {
         console.log("Error in endMeeting controller", err.message);
@@ -249,9 +255,13 @@ export const leaveMeeting = async (req, res) => {
             // If host tries to "leave", redirect to endMeeting logic
             return endMeeting(req, res);
         }
+        console.log("Leave meeting controller: ", meeting);
 
         const participantIdx = meeting.participants.findIndex(
-            (p) => p.user.toString() === userId.toString()
+            (p) => {
+                console.log("Participant: ", p.user.toString(), "userId : ", userId.toString())
+                return p.user.toString() === userId.toString()
+            }
         );
         if (participantIdx === -1) {
             return res.status(400).json({ message: "You are not in this meeting" });
@@ -264,6 +274,61 @@ export const leaveMeeting = async (req, res) => {
         res.status(200).json({ message: "Left the meeting successfully" });
     } catch (err) {
         console.log("Error in leaveMeeting controller", err.message);
+        res.status(500).json({ message: "Internal Server Error" });
+    }
+};
+
+export const allowParticipant = async (req, res) => {
+    try {
+        const { meetingCode, userId } = req.body;
+        const hostId = req.user._id;
+
+        const meeting = await Meeting.findOne({ meetingCode });
+        if (!meeting || meeting.host.toString() !== hostId.toString()) {
+            return res.status(403).json({ message: "Only the host can allow participants" });
+        }
+
+        const participant = meeting.participants.find((p) => p.user.toString() === userId);
+        if (!participant || participant.status !== "waiting") {
+            return res.status(404).json({ message: "Participant not found or not waiting" });
+        }
+
+        participant.status = "joined";
+        participant.joinedAt = new Date();
+        await meeting.save();
+
+        io.to(meetingCode).emit("participantUpdate", meeting.participants);
+        res.status(200).json({ message: "Participant allowed" });
+    } catch (err) {
+        console.error("Error in allowParticipant:", err.message);
+        res.status(500).json({ message: "Internal Server Error" });
+    }
+};
+
+export const denyParticipant = async (req, res) => {
+    try {
+        const { meetingCode, userId } = req.body;
+        const hostId = req.user._id;
+
+        const meeting = await Meeting.findOne({ meetingCode });
+        if (!meeting || meeting.host.toString() !== hostId.toString()) {
+            return res.status(403).json({ message: "Only the host can deny participants" });
+        }
+
+        const participantIndex = meeting.participants.findIndex(
+            (p) => p.user.toString() === userId && p.status === "waiting"
+        );
+        if (participantIndex === -1) {
+            return res.status(404).json({ message: "Participant not found or not waiting" });
+        }
+
+        meeting.participants.splice(participantIndex, 1);
+        await meeting.save();
+
+        io.to(meetingCode).emit("participantUpdate", meeting.participants);
+        res.status(200).json({ message: "Participant denied" });
+    } catch (err) {
+        console.error("Error in denyParticipant:", err.message);
         res.status(500).json({ message: "Internal Server Error" });
     }
 };

@@ -1,16 +1,19 @@
 import React, { useRef, useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { FaPaperPlane } from "react-icons/fa";
+import { useAuthStore } from "../store/useAuthStore";
 
-const ChatSection = ({ isChatOpen, setIsChatOpen, userName, socket }) => {
+const ChatSection = ({ isChatOpen, setIsChatOpen, socket }) => {
   const chatContainerRef = useRef(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [isScrolledUp, setIsScrolledUp] = useState(false);
+  const { authUser } = useAuthStore();
+  const userName = authUser?.fullName || "Guest"; // Fallback to "Guest" if authUser is null
 
   useEffect(() => {
-    // Receive new chat messages
     socket.on("newMessage", (message) => {
+      console.log("newMessage received:", message); // Debug
       setMessages((prev) => [...prev, message]);
     });
 
@@ -39,9 +42,10 @@ const ChatSection = ({ isChatOpen, setIsChatOpen, userName, socket }) => {
   const sendMessage = () => {
     if (newMessage.trim()) {
       const message = { sender: userName, text: newMessage };
-      setMessages((prev) => [...prev, message]);
+      //setMessages((prev) => [...prev, message]);
       socket.emit("sendMessage", message);
       setNewMessage("");
+      scrollToBottom();
     }
   };
 
@@ -72,8 +76,10 @@ const ChatSection = ({ isChatOpen, setIsChatOpen, userName, socket }) => {
                 className="w-10 h-10 rounded-full"
               />
               <div>
-                <p className="font-semibold text-sm">{msg.sender}</p>
-                <p className="text-sm text-gray-700">{msg.text}</p>
+                <p className="font-semibold text-sm">
+                  {msg.sender || "unknown"}
+                </p>
+                <p className="text-sm text-gray-700">{msg.text || "F"}</p>
               </div>
             </div>
           ))

@@ -7,8 +7,8 @@ import { CiVideoOff } from "react-icons/ci";
 const PeopleSection = ({
   isPeopleOpen,
   setIsPeopleOpen,
-  participants = {}, // Ensure participants is always an object
-  waitingToJoin = {}, // Ensure waitingToJoin is always an array
+  participants, // Ensure participants is always an object
+  waitingToJoin, // Ensure waitingToJoin is always an array
   handleAllow,
   handleDeny,
 }) => {
@@ -35,11 +35,9 @@ const PeopleSection = ({
             {waitingToJoin.map((user) => (
               <div key={user.id} className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <img
-                    src="https://via.placeholder.com/40"
-                    alt="User Avatar"
-                    className="w-10 h-10 rounded-full"
-                  />
+                  <div className="w-10 h-10 flex items-center justify-center rounded-full bg-indigo-600 text-white text-xl">
+                    {user.name[0].toUpperCase()}
+                  </div>
                   <span className="font-medium text-sm">{user.name}</span>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -69,11 +67,9 @@ const PeopleSection = ({
           Object.entries(participants).map(([id, participant]) => (
             <div key={id} className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <img
-                  src="https://via.placeholder.com/40"
-                  alt="Participant Avatar"
-                  className="w-10 h-10 rounded-full"
-                />
+                <div className="w-10 h-10 flex items-center justify-center rounded-full bg-indigo-600 text-white text-xl">
+                  {participant.name[0].toUpperCase()}
+                </div>
                 <span className="font-medium text-sm">
                   {participant.name || "Unknown"}
                 </span>
