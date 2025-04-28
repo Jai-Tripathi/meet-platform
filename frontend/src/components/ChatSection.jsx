@@ -70,11 +70,9 @@ const ChatSection = ({ isChatOpen, setIsChatOpen, socket }) => {
         {messages.length > 0 ? (
           messages.map((msg, index) => (
             <div key={index} className="flex items-start space-x-3">
-              <img
-                src="https://via.placeholder.com/40"
-                alt="User Avatar"
-                className="w-10 h-10 rounded-full"
-              />
+              <div className="w-10 h-10 flex items-center justify-center rounded-full bg-indigo-600 text-white text-xl">
+                {msg.sender[0].toUpperCase()}
+              </div>
               <div>
                 <p className="font-semibold text-sm">
                   {msg.sender || "unknown"}
@@ -103,6 +101,12 @@ const ChatSection = ({ isChatOpen, setIsChatOpen, socket }) => {
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault(); // prevents newline if form wrapped
+                sendMessage();
+              }
+            }}
           />
           <button
             onClick={sendMessage}
