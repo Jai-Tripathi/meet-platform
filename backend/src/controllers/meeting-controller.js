@@ -1,7 +1,8 @@
 import Meeting from "../models/meeting-model.js";
 import { io, getMeetingParticipantsSocketIds } from "../lib/socket.js";
+import { v4 as uuidv4 } from 'uuid';
 
-const generateMeetingCode = () => uuidv4().slice(0, 8);
+const generateMeetingCode = () => uuidv4().slice(0, 12);
 
 // ICE Servers (STUN only for free)
 const iceServers = [{ urls: "stun:stun.l.google.com:19302" }];
@@ -69,13 +70,14 @@ export const deleteMeeting = async (req, res) => {
 export const createInstantMeeting = async (req, res) => {
     try {
         const hostId = req.user._id; // From auth middleware
+        const meetingCode = generateMeetingCode(); // Generate a unique meeting code
 
         const meeting = new Meeting({
             host: hostId,
             title: "Instant Meeting",
             description: "Started instantly",
-            meetingCode: generateMeetingCode(),
-            meetingUrl: `/Meeting-live/${generateMeetingCode()}`,
+            meetingCode: meetingCode,
+            meetingUrl: `/Meeting-live/${meetingCode}`,
             time: new Date().toLocaleTimeString(),
             date: new Date().toISOString().split("T")[0],
             isInstant: true,
@@ -83,10 +85,7 @@ export const createInstantMeeting = async (req, res) => {
         });
 
         await meeting.save();
-        res.status(201).json({
-            meetingCode: meeting.meetingCode,
-            meetingUrl: meeting.meetingUrl,
-        });
+        res.status(201).json(meeting);
     } catch (err) {
         console.log("Error in createInstantMeeting controller", err.message);
         res.status(500).json({ message: "Internal Server Error" });
@@ -177,12 +176,13 @@ export const endMeeting = async (req, res) => {
         const hostId = req.user._id;
 
         const meeting = await Meeting.findOne({ meetingCode, host: hostId });
+        const meetingId = meeting._id.toString()
         if (!meeting) {
             return res.status(403).json({ message: "Not authorized or meeting not found" });
         }
 
         // Notify all participants via Socket.IO
-        io.to(meetingCode).emit("meetingEnded");
+        io.to(meetingCode).emit("meetingEnded", ({ meetingId })); // Notify all participants
         console.log("Meeting end controller - CLEARING MEETING ");
 
         meeting.status = "ended";

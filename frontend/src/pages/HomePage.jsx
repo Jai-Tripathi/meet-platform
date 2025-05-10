@@ -13,8 +13,14 @@ const HomePage = () => {
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const { meetings, fetchMeetings, addMeeting, removeMeeting } =
-    useMeetingStore();
+  const {
+    meetings,
+    fetchMeetings,
+    addMeeting,
+    removeMeeting,
+    instantMeeting,
+    joinMeeting,
+  } = useMeetingStore();
 
   useEffect(() => {
     fetchMeetings(); // Fetch meetings from the backend on mount
@@ -28,11 +34,25 @@ const HomePage = () => {
     navigate("/Ask-for-join");
   };
 
+  const handleInstantMeeting = async () => {
+    const meeting = await instantMeeting();
+    if (meeting) {
+      joinMeeting(meeting.meetingCode);
+      navigate(`/Meeting-live/${meeting.meetingCode}`);
+    } else {
+      console.error("Failed to create instant meeting");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-base-200 mt-20">
       {/* Meeting Options */}
       <div className="flex justify-center gap-6">
-        <MeetingCard icon={<Plus />} title="Instant Meeting" />
+        <MeetingCard
+          icon={<Plus />}
+          title="Instant Meeting"
+          onClick={handleInstantMeeting}
+        />
         <MeetingCard
           icon={<Video />}
           title="Join Meeting"

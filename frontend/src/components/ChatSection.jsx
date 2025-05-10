@@ -3,7 +3,7 @@ import { X } from "lucide-react";
 import { FaPaperPlane } from "react-icons/fa";
 import { useAuthStore } from "../store/useAuthStore";
 
-const ChatSection = ({ isChatOpen, setIsChatOpen, socket }) => {
+const ChatSection = ({ isChatOpen, setIsChatOpen, socket, selected }) => {
   const chatContainerRef = useRef(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
@@ -52,12 +52,16 @@ const ChatSection = ({ isChatOpen, setIsChatOpen, socket }) => {
   if (!isChatOpen) return null;
 
   return (
-    <div className="w-full h-[100%] sm:w-[90%] lg:w-[25%] bg-white text-black shadow-lg flex flex-col lg:overflow-hidden fixed bottom-50% sm:bottom-auto sm:right-0 sm:rounded-t-lg lg:static">
-      <div className="flex justify-between items-center p-4 border-b border-gray-300">
+    <div
+      className /*{`w-full h-[100%] sm:w-[90%] lg:w-[25%] bg-white text-black shadow-lg flex flex-col lg:overflow-hidden fixed bottom-50% sm:bottom-auto sm:right-0 sm:rounded-t-lg lg:static`}*/={`absolute top-0 right-0 w-full sm:w-[50%] lg:w-[20%] h-full bg-gray-900 text-white shadow-lg flex flex-col overflow-hidden transition-transform duration-300 transform ${
+        isChatOpen ? "translate-x-0" : "translate-x-full"
+      } z-10`}
+    >
+      <div className="flex justify-between items-center p-4 border-b border-gray-700">
         <h2 className="text-lg font-semibold">Chat</h2>
         <button
           onClick={() => setIsChatOpen(false)}
-          className="text-gray-500 hover:text-black"
+          className="text-gray-400 hover:text-white"
         >
           <X size={20} />
         </button>
@@ -65,7 +69,7 @@ const ChatSection = ({ isChatOpen, setIsChatOpen, socket }) => {
       <div
         ref={chatContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto p-4 space-y-4"
+        className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4"
       >
         {messages.length > 0 ? (
           messages.map((msg, index) => (
@@ -73,16 +77,18 @@ const ChatSection = ({ isChatOpen, setIsChatOpen, socket }) => {
               <div className="w-10 h-10 flex items-center justify-center rounded-full bg-indigo-600 text-white text-xl">
                 {msg.sender[0].toUpperCase()}
               </div>
-              <div>
+              <div className="message-content flex-1 overflow-x-hidden">
                 <p className="font-semibold text-sm">
                   {msg.sender || "unknown"}
                 </p>
-                <p className="text-sm text-gray-700">{msg.text || "F"}</p>
+                <p className="text-sm text-gray-300 break-all bg-gray-800 rounded-lg p-2">
+                  {msg.text || "F"}
+                </p>
               </div>
             </div>
           ))
         ) : (
-          <p className="text-gray-500">No messages yet.</p>
+          <p className="text-gray-400">No messages yet.</p>
         )}
       </div>
       {isScrolledUp && (

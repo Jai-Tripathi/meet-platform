@@ -16,7 +16,6 @@ import Picker from "emoji-picker-react";
 import { useAuthStore } from "../store/useAuthStore";
 
 const LowerSection = ({
-  participants,
   toggleMic,
   toggleCamera,
   startScreenShare,
@@ -28,6 +27,7 @@ const LowerSection = ({
   isMicOn,
   isVideoOn,
   isScreenSharing,
+  socket,
 }) => {
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const { authUser } = useAuthStore();
@@ -36,13 +36,22 @@ const LowerSection = ({
     setIsEmojiPickerOpen((prev) => !prev);
   };
 
-  const onEmojiClick = (event, emojiObject) => {
-    console.log("Selected Emoji:", emojiObject.emoji);
+  const onEmojiClick = (emojiObject, event) => {
+    console.log(
+      "Selected Emoji:",
+      emojiObject.emoji,
+      "name:",
+      authUser.fullName
+    );
+    const emoji = emojiObject.emoji;
+    const name = authUser.fullName;
+    socket.emit("sendEmoji", { name: name, emoji: emoji });
+
     setIsEmojiPickerOpen(false);
   };
 
   return (
-    <div className="bg-black p-3 flex items-center justify-between w-full relative">
+    <div className="bg-black p-4 flex items-center justify-between w-full fixed bottom-0 left-0">
       <div className="flex gap-2">
         <button
           className={`p-2 rounded-lg text-white ${
@@ -108,7 +117,7 @@ const LowerSection = ({
       </div>
 
       <button
-        className="bg-red-500 p-2 rounded-lg text-white leave-button fixed bottom-122 right-3 md:static md:bottom-auto md:right-auto"
+        className="bg-red-500 p-2 rounded-lg text-white leave-button bottom-122 right-3 md:static md:bottom-auto md:right-auto"
         onClick={openLeaveModal}
       >
         <FaSignOutAlt />

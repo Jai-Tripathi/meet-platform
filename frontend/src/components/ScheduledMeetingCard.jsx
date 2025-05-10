@@ -12,6 +12,12 @@ const ScheduledMeetingCard = ({ meetings, onDelete }) => {
     navigate("/pre-meeting-screen");
   };
 
+  const handleDeleteClick = (e, meetingId) => {
+    e.stopPropagation();
+    console.log("Delete button clicked for meeting ID:", meetingId);
+    onDelete(meetingId);
+  };
+
   return (
     <div className="self-start ml-22">
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 w-260">
@@ -19,18 +25,19 @@ const ScheduledMeetingCard = ({ meetings, onDelete }) => {
           return (
             <div
               key={index}
-              className="relative bg-[#1E1C1C] p-4 rounded-lg shadow-lg hover:text-xl cursor-pointer"
+              className="relative bg-[#1E1C1C] p-4 rounded-lg shadow-lg hover:text-xl cursor-pointer sm:w-60 max-sm:w-58 max-sm:p-2 "
+              onClick={() => handleMeetingClick(meeting)}
             >
               <div className="w-8 h-8 bg-[#232C4D] flex items-center justify-center rounded-lg mb-3 ">
                 <Video color="white" />
               </div>
               <button
                 className="absolute top-2 right-2 text-gray-400 hover:text-white"
-                onClick={() => onDelete(meeting._id)}
+                onClick={(e) => handleDeleteClick(e, meeting._id)}
               >
                 <X size={16} />
               </button>
-              <div onClick={() => handleMeetingClick(meeting)}>
+              <div>
                 <div className="flex justify-between">
                   <h3 className="text-white font-medium">{meeting.title}</h3>
                 </div>

@@ -15,12 +15,16 @@ const PeopleSection = ({
   if (!isPeopleOpen) return null;
 
   return (
-    <div className="w-full h-[100%] sm:w-[90%] lg:w-[25%] bg-white text-black shadow-lg flex flex-col lg:overflow-hidden fixed bottom-50% sm:bottom-auto sm:right-0 sm:rounded-t-lg lg:static">
+    <div
+      className /*"w-full h-[100%] sm:w-[90%] lg:w-[25%] bg-white text-black shadow-lg flex flex-col lg:overflow-hidden fixed bottom-50% sm:bottom-auto sm:right-0 sm:rounded-t-lg lg:static"*/={`absolute top-0 right-0 w-full sm:w-[50%] lg:w-[20%] h-full bg-gray-900 text-white shadow-lg flex flex-col overflow-hidden transition-transform duration-300 transform ${
+        isPeopleOpen ? "translate-x-0" : "translate-x-full"
+      } z-10`}
+    >
       <div className="flex justify-between items-center p-4 border-b border-gray-300">
         <h2 className="text-lg font-semibold">People</h2>
         <button
           onClick={() => setIsPeopleOpen(false)}
-          className="text-gray-500 hover:text-black"
+          className="text-gray-500 hover:text-white"
         >
           <X size={20} />
         </button>
@@ -29,7 +33,7 @@ const PeopleSection = ({
         {/* Waiting to Join Section */}
         {waitingToJoin.length > 0 && (
           <>
-            <h3 className="text-sm font-semibold text-gray-500 mb-2">
+            <h3 className="text-sm font-semibold text-gray-300 mb-2">
               Waiting to Join
             </h3>
             {waitingToJoin.map((user) => (
@@ -49,7 +53,7 @@ const PeopleSection = ({
                   </button>
                   <button
                     onClick={() => handleAllow(user.id)}
-                    className="text-blue-500 hover:underline"
+                    className="text-green-500 hover:underline"
                   >
                     Allow
                   </button>
@@ -60,7 +64,7 @@ const PeopleSection = ({
         )}
 
         {/* In This Meeting Section */}
-        <h3 className="text-sm font-semibold text-gray-500 mt-4 mb-2">
+        <h3 className="text-sm font-semibold text-gray-300 mt-4 mb-2">
           In this meeting
         </h3>
         {Object.keys(participants).length > 0 ? (

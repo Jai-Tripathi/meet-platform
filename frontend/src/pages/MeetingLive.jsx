@@ -12,6 +12,7 @@ import LeaveModal from "../components/LeaveModal";
 import LowerSection from "../components/LowerSection";
 import ParticipantView from "../components/ParticipantView";
 import { Loader, ClipboardCheck, Copy } from "lucide-react";
+import { toast } from "react-hot-toast";
 
 import { useAuthStore } from "../store/useAuthStore";
 import { useMeetingStore } from "../store/useMeetingStore";
@@ -24,6 +25,7 @@ const MeetingLive = () => {
   const {
     selectedMeeting,
     participants,
+    streams,
     setParticipants,
     waitingToJoin,
     allowParticipant,
@@ -31,7 +33,11 @@ const MeetingLive = () => {
     myStatus,
     meetingCode,
     setMyStatus,
+    setActiveScreenSharer,
+    activeScreenSharer,
     renegotiatePeerConnection,
+    count,
+    setCount,
   } = useMeetingStore();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -186,14 +192,62 @@ const MeetingLive = () => {
   }, [socket, setParticipants, setMyStatus]);
 
   useEffect(() => {
-    if (localStream && videoRef.current && !isScreenSharing) {
+    if (
+      activeScreenSharer &&
+      streams[activeScreenSharer]?.video &&
+      videoRef.current
+    ) {
+      setCount(count + 1);
+
+      console.log(
+        "Setting screen stream for active sharer:",
+        activeScreenSharer
+      );
+      videoRef.current.srcObject =
+        streams[activeScreenSharer].screen || streams[activeScreenSharer].video;
+      videoRef.current.play().catch((err) => {
+        console.error("Error playing screen stream:", err);
+      });
+
+      if (count > 0) {
+        return;
+      }
+
+      navigator.mediaDevices
+        .getUserMedia({ video: true, audio: true })
+        .then((cameraStream) => {
+          const cameraVideoRef = document.getElementById("camera-thumbnail");
+          if (cameraVideoRef) {
+            cameraVideoRef.srcObject = cameraStream; // Assign the camera stream to the thumbnail
+            console.log("camera stream set:", cameraStream);
+            cameraVideoRef.onloadedmetadata = () => {
+              console.log("Camera stream metadata loaded:", cameraVideoRef);
+              cameraVideoRef.play().catch((err) => {
+                console.error("Error playing camera video:", err);
+              }); // Ensure the video starts playing
+            };
+          }
+        })
+        .catch((err) => {
+          console.error("Error accessing camera for thumbnail:", err);
+        });
+    }
+  }, [streams, activeScreenSharer]);
+
+  useEffect(() => {
+    if (
+      localStream &&
+      videoRef.current &&
+      !isScreenSharing &&
+      !activeScreenSharer
+    ) {
       console.log("Setting localStream to videoRef:", localStream);
       videoRef.current.srcObject = localStream;
       videoRef.current.play().catch((err) => {
         console.error("Error playing localStream:", err);
       });
     }
-  }, [localStream, isScreenSharing]);
+  }, [localStream, isScreenSharing, activeScreenSharer]);
 
   useEffect(() => {
     if (screenStream && videoRef.current && isScreenSharing) {
@@ -220,7 +274,7 @@ const MeetingLive = () => {
         ...prev,
         [userId]: { ...prev[userId], isScreenSharing: true },
       }));
-      alert(
+      toast(
         `${
           participants[userId]?.name || "A participant"
         } started screen sharing.`
@@ -232,7 +286,7 @@ const MeetingLive = () => {
         ...prev,
         [userId]: { ...prev[userId], isScreenSharing: false },
       }));
-      alert(
+      toast(
         `${
           participants[userId]?.name || "A participant"
         } stopped screen sharing.`
@@ -302,6 +356,7 @@ const MeetingLive = () => {
     console.log("TOGGLE MIC:", authUser._id);
     if (localStream) {
       const audioTrack = localStream.getAudioTracks()[0];
+      console.log("Audio Track:", audioTrack);
       audioTrack.enabled = !audioTrack.enabled;
       setIsMicOn(audioTrack.enabled);
       socket.emit("toggleMic", {
@@ -330,12 +385,19 @@ const MeetingLive = () => {
 
   const startScreenShare = async () => {
     try {
+      if (activeScreenSharer) {
+        toast.error("Another user is already sharing their screen.");
+        return;
+      }
       const newScreenStream = await navigator.mediaDevices.getDisplayMedia({
         video: true,
         audio: true,
       });
       setIsScreenSharing(true); // Set screen sharing state to true
       setScreenStream(newScreenStream);
+      //setActiveScreenSharer(authUser._id); // Set the active screen sharer
+      const userId = authUser._id;
+      socket.emit("activeScreenSharer", { userId }); // Notify others about the active screen sharer
 
       // Add screen stream to useMeetingStore
       useMeetingStore.getState().setScreenStream(authUser._id, newScreenStream);
@@ -398,10 +460,20 @@ const MeetingLive = () => {
     }
     setIsScreenSharing(false); // Reset screen sharing state
     setScreenStream(null);
+    setActiveScreenSharer(null); // Reset active screen sharer
+    setCount(0); // Reset count to 0
 
     // Remove screen stream from useMeetingStore
     useMeetingStore.getState().setScreenStream(authUser._id, null);
     socket.emit("stopScreenShare", { userId: authUser._id }); // Notify others that screen sharing has stopped
+
+    socket.emit("activeScreenSharer", { userId: null }); // Notify others that no one is sharing
+
+    Object.keys(useMeetingStore.getState().peerConnections).forEach(
+      (participantId) => {
+        renegotiatePeerConnection(participantId);
+      }
+    );
 
     // Revert to the camera feed
     if (localStream && videoRef.current) {
@@ -518,14 +590,16 @@ const MeetingLive = () => {
               selected === "Sidebar" ? "lg:w-[80%]" : "w-full"
             } flex justify-center items-center relative`}
           >
-            {isScreenSharing ? (
+            {activeScreenSharer && streams[activeScreenSharer]?.video ? (
               <div className="flex w-full h-full">
                 {/* Shared Screen on the Left */}
                 <video
                   ref={videoRef}
                   autoPlay
                   muted
-                  className="flex-1 h-[75vh] object-cover rounded-lg lg:h-[90%]"
+                  className={`flex-1 h-[75vh] object-cover rounded-lg lg:h-[90%] ${
+                    isChatOpen || isPeopleOpen ? "" : ""
+                  }`}
                 ></video>
 
                 {/* Camera Feed on the Right */}
@@ -533,7 +607,9 @@ const MeetingLive = () => {
                   id="camera-thumbnail"
                   autoPlay
                   muted
-                  className="w-1/3 h-[75vh] object-cover border-2 border-white rounded-lg lg:h-[90%] ml-4"
+                  className={`w-1/3 h-[75vh] object-cover border-2 border-white rounded-lg lg:h-[90%] ml-4 ${
+                    isChatOpen || isPeopleOpen ? "hidden" : "block"
+                  }`}
                 ></video>
               </div>
             ) : localStream ? (
@@ -554,12 +630,15 @@ const MeetingLive = () => {
             selected={selected}
             participants={participants}
             toggleParticipantMic={toggleParticipantMic}
+            isChatOpen={isChatOpen}
+            isPeopleOpen={isPeopleOpen}
           />
           {/* Chat Section */}
           <ChatSection
             isChatOpen={isChatOpen}
             setIsChatOpen={setIsChatOpen}
             socket={socket}
+            selected={selected}
           />
           {/* People Section */}
           <PeopleSection
@@ -573,7 +652,6 @@ const MeetingLive = () => {
         </div>
         {/* Lower Section */}
         <LowerSection
-          participants={participants}
           socket={socket}
           toggleMic={toggleMic}
           toggleCamera={toggleCamera}

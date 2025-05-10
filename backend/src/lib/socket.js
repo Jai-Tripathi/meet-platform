@@ -51,6 +51,7 @@ io.on("connection", (socket) => {
 
         // Fetch meeting from DB to validate and get participants
         const meeting = await Meeting.findOne({ meetingCode });
+        const meetingId = meeting._id.toString()
         if (!meeting) {
             socket.emit("error", "Meeting not found");
             return;
@@ -146,6 +147,17 @@ io.on("connection", (socket) => {
             io.to(meetingCode).emit("handRaised", { userId });
         });
 
+
+        socket.on("activeScreenSharer", ({ userId }) => {
+            console.log("ActiveScreenSharer received (Socket.lib):", { userId });
+            io.to(meetingCode).emit("activeScreenSharer", { userId });
+        });
+
+        socket.on("sendEmoji", ({ name, emoji }) => {
+            console.log("sendEmoji received:", { name, emoji });
+            io.to(meetingCode).emit("sendEmoji", { name, emoji });
+        });
+
         // Screen Share Toggle
         socket.on("screenShareToggled", (userId, isSharing) => {
             console.log("screenShareToggled received (Socket.lib):", { userId, isSharing });
@@ -153,8 +165,9 @@ io.on("connection", (socket) => {
             io.to(meetingCode).emit("streamUpdate", { userId, screenSharing: isSharing });
         });
 
-        socket.on("startScreenShare", ({ userId }) => {
+        socket.on("startScreenShare", async ({ userId }) => {
 
+            const meeting = await Meeting.findOne({ meetingCode });
             if (meeting) {
                 console.log("startScreenShare received in backend(participants):", meeting.participants);
                 const participant = meeting.participants.find((p) => p.user.toString() === userId.toString());
@@ -165,6 +178,7 @@ io.on("connection", (socket) => {
                         userId: participant.user,
                         isSharing: true,
                     });
+                    io.to(meetingCode).emit("streamUpdate", { userId, screenSharing: true });
                     {/*io.to(meetingCode).emit("participantUpdate", {
                         userId: participant.user,
                         name: participant.name,
@@ -177,7 +191,8 @@ io.on("connection", (socket) => {
             }
         });
 
-        socket.on("stopScreenShare", ({ userId }) => {
+        socket.on("stopScreenShare", async ({ userId }) => {
+            const meeting = await Meeting.findOne({ meetingCode });
 
             if (meeting) {
                 const participant = meeting.participants.find((p) => p.user.toString() === userId.toString());
@@ -187,6 +202,8 @@ io.on("connection", (socket) => {
                         userId: participant.user,
                         isSharing: false,
                     });
+
+                    io.to(meetingCode).emit("streamUpdate", { userId, screenSharing: false });
                     {/*io.to(meetingCode).emit("participantUpdate", {
                         userId: participant.user,
                         name: participant.name,
@@ -234,7 +251,7 @@ io.on("connection", (socket) => {
                     // If host leaves, end the meeting
                     if (meeting.host.toString() === userId.toString()) {
                         console.log("Host leaving, ending meeting:", meetingCode);
-                        io.to(meetingCode).emit("meetingEnded");
+                        io.to(meetingCode).emit("meetingEnded", { meetingId });
                         delete meetingSocketMap[meetingCode];
                     }
                 }
@@ -243,7 +260,7 @@ io.on("connection", (socket) => {
 
         // Handle meeting end
         socket.on("endMeeting", ({ meetingCode }) => {
-            io.to(meetingCode).emit("meetingEnded");
+            io.to(meetingCode).emit("meetingEnded", { meetingId });
             if (meetingSocketMap[meetingCode]) {
                 delete meetingSocketMap[meetingCode];
             }

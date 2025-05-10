@@ -130,6 +130,7 @@ const ScheduleMeetingForm = ({ isOpen, onClose, onSave }) => {
 
         <div className="flex items-center justify-center gap-2  p-2 w-full mt-4">
           <button
+            type="button"
             onClick={copyToClipboard}
             className="text-gray-300 hover:text-white"
           >
