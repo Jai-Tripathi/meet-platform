@@ -597,9 +597,7 @@ const MeetingLive = () => {
                   ref={videoRef}
                   autoPlay
                   muted
-                  className={`flex-1 h-[75vh] object-cover rounded-lg lg:h-[90%] ${
-                    isChatOpen || isPeopleOpen ? "" : ""
-                  }`}
+                  className={`flex-1 h-[75vh] object-cover rounded-lg lg:h-[90%] `}
                 ></video>
 
                 {/* Camera Feed on the Right */}
@@ -609,7 +607,7 @@ const MeetingLive = () => {
                   muted
                   className={`w-1/3 h-[75vh] object-cover border-2 border-white rounded-lg lg:h-[90%] ml-4 ${
                     isChatOpen || isPeopleOpen ? "hidden" : "block"
-                  }`}
+                  } transform scale-x-[-1]`}
                 ></video>
               </div>
             ) : localStream ? (
@@ -617,7 +615,7 @@ const MeetingLive = () => {
                 ref={videoRef}
                 autoPlay
                 muted
-                className="w-full h-[75vh] object-cover rounded-lg lg:w-[90%] lg:h-[90%] "
+                className="w-full h-[75vh] object-cover rounded-lg lg:w-[90%] lg:h-[90%] transform scale-x-[-1]"
               ></video>
             ) : (
               <div className="w-full h-[75vh] flex items-center justify-center bg-gray-800 text-white text-9xl font-bold rounded-lg lg:w-[90%] lg:h-[90%]">
@@ -663,6 +661,7 @@ const MeetingLive = () => {
           isMicOn={isMicOn}
           isVideoOn={isVideoOn}
           isScreenSharing={isScreenSharing}
+          waitingToJoin={waitingToJoin}
           openLeaveModal={() => setIsLeaveModalOpen(true)} // Correctly pass function to open LeaveModal
         />
       </div>

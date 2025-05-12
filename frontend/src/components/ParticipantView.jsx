@@ -112,7 +112,7 @@ const ParticipantView = ({
                     }}
                     autoPlay
                     muted
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover transform scale-x-[-1]"
                   ></video>
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-gray-800 text-white text-4xl font-semibold rounded-md">
@@ -136,7 +136,11 @@ const ParticipantView = ({
                     className="text-xs bg-gray-700 text-white px-2 py-1 rounded"
                     onClick={() => toggleParticipantMic(id)}
                   >
-                    {participant.mic ? <FaMicrophone /> : "🔇"}
+                    {participant.mic ? (
+                      <FaMicrophone />
+                    ) : (
+                      <PiMicrophoneSlashLight />
+                    )}
                   </button>
                 </div>
               </div>
@@ -167,7 +171,7 @@ const ParticipantView = ({
                     }}
                     autoPlay
                     muted
-                    className="w-full h-32 object-cover"
+                    className="w-full h-32 object-cover transform scale-x-[-1]"
                   ></video>
                 ) : (
                   <div className="w-full h-32 flex items-center justify-center bg-gray-800 text-white text-4xl font-semibold rounded-md">
@@ -222,7 +226,7 @@ const ParticipantView = ({
                     }}
                     autoPlay
                     muted
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover transform scale-x-[-1]"
                   ></video>
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-gray-800 text-white text-7xl font-semibold rounded-md">

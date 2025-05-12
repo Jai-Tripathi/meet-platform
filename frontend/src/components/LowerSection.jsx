@@ -28,6 +28,7 @@ const LowerSection = ({
   isVideoOn,
   isScreenSharing,
   socket,
+  waitingToJoin,
 }) => {
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const { authUser } = useAuthStore();
@@ -96,12 +97,19 @@ const LowerSection = ({
             </div>
           )}
         </div>
-        <button
-          className="bg-gray-600 p-2 rounded-lg text-white"
-          onClick={togglePeople}
-        >
-          <FaUser />
-        </button>
+        <div className="relative">
+          <button
+            className="bg-gray-600 p-2 rounded-lg text-white"
+            onClick={togglePeople}
+          >
+            <FaUser />
+          </button>
+          {waitingToJoin.length > 0 && (
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-semibold rounded-full w-5 h-5 flex items-center justify-center">
+              {waitingToJoin.length}
+            </span>
+          )}
+        </div>
         <button
           className="bg-gray-600 p-2 rounded-lg text-white"
           onClick={toggleChat}
