@@ -45,16 +45,9 @@ const MeetingLive = () => {
   const [activeItem, setActiveItem] = useState("Change Layout");
   const [screenStream, setScreenStream] = useState(null);
 
-  const tools = [
-    "Share Screen",
-    "Unmute",
-    "Video",
-    "Chat",
-    "Rename",
-    "Hand Raise",
-  ];
+  const tools = ["Share Screen", "Unmute", "Video", "Chat", "Emoji"];
   const [toggleStates, setToggleStates] = useState(
-    tools.reduce((acc, tool) => ({ ...acc, [tool]: false }), {})
+    tools.reduce((acc, tool) => ({ ...acc, [tool]: true }), {})
   );
 
   const [localStream, setLocalStream] = useState(null);
@@ -179,8 +172,12 @@ const MeetingLive = () => {
       setSelected(layout);
     });
 
-    socket.on("updateHostTools", (tools) => {
-      setToggleStates(tools);
+    socket.on("updateHostTools", (tool) => {
+      const obj = tool;
+      const newTool = obj.tool;
+      const newState = !toggleStates[newTool];
+
+      setToggleStates((prev) => ({ ...prev, [newTool]: newState }));
     });
 
     return () => {
@@ -189,7 +186,7 @@ const MeetingLive = () => {
       socket.off("updateLayout");
       socket.off("updateHostTools");
     };
-  }, [socket, setParticipants, setMyStatus]);
+  }, [socket, setParticipants, setMyStatus, toggleStates]);
 
   useEffect(() => {
     if (
@@ -347,9 +344,14 @@ const MeetingLive = () => {
   };
 
   const handleToggle = (tool) => {
-    const newState = !toggleStates[tool];
-    setToggleStates((prev) => ({ ...prev, [tool]: newState }));
-    socket.emit("updateHostTools", { ...toggleStates, [tool]: newState });
+    const HostId = selectedMeeting.host;
+    const isHost = authUser._id === HostId;
+    if (!isHost) {
+      toast.error("Only the host can change this setting.");
+      return;
+    }
+
+    socket.emit("updateHostTools", { tool });
   };
 
   const toggleMic = () => {

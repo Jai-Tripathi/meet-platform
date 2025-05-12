@@ -20,11 +20,11 @@ const meetingSchema = new mongoose.Schema(
         ],
         status: { type: String, enum: ["scheduled", "ongoing", "ended"], default: "scheduled" },
         settings: {
-            allowScreenShare: { type: Boolean, default: true },
-            allowUnmute: { type: Boolean, default: true },
-            allowVideo: { type: Boolean, default: true },
-            allowChat: { type: Boolean, default: true },
-            allowRaiseHand: { type: Boolean, default: true },
+            ScreenShare: { type: Boolean, default: true },
+            Unmute: { type: Boolean, default: true },
+            Video: { type: Boolean, default: true },
+            Chat: { type: Boolean, default: true },
+            Emoji: { type: Boolean, default: true },
         },
     },
     { timestamps: true }

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Bell, Settings, X } from "lucide-react";
 import { IoVideocamOutline, IoMicOutline } from "react-icons/io5";
 import { HiOutlineSpeakerWave } from "react-icons/hi2";

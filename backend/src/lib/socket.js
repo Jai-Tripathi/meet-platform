@@ -153,6 +153,23 @@ io.on("connection", (socket) => {
             io.to(meetingCode).emit("activeScreenSharer", { userId });
         });
 
+        socket.on("updateHostTools", async ({ tool }) => {
+            console.log("updateHostTools received (Socket.lib):", tool);
+            const meeting = await Meeting.findOne({ meetingCode });
+            if (meeting) {
+                let backendTool = tool;
+
+                if (tool === "Share Screen") {
+                    backendTool = "ScreenShare";
+                }
+                meeting.settings[backendTool] = !meeting.settings[backendTool];
+                await meeting.save();
+                console.log("Meeting settings updated:", meeting.settings);
+            }
+
+            io.to(meetingCode).emit("updateHostTools", { tool });
+        });
+
         socket.on("sendEmoji", ({ name, emoji }) => {
             console.log("sendEmoji received:", { name, emoji });
             io.to(meetingCode).emit("sendEmoji", { name, emoji });
