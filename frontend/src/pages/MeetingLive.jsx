@@ -41,7 +41,7 @@ const MeetingLive = () => {
   } = useMeetingStore();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selected, setSelected] = useState("Spotlight");
+  const [selected, setSelected] = useState("Sidebar");
   const [activeItem, setActiveItem] = useState("Change Layout");
   const [screenStream, setScreenStream] = useState(null);
 
