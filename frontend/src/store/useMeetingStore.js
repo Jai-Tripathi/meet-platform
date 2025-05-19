@@ -823,7 +823,7 @@ export const useMeetingStore = create((set, get) => ({
             const response = await axiosInstance.post("/meetings", newMeeting);
             set((state) => ({ meetings: [...state.meetings, response.data] }));
         } catch (error) {
-            console.log("error in add meeting:" + error)
+            console.log("error in add meeting:" + error);
             toast.error(error.response?.data?.message || "Failed to add meeting");
         } finally {
             set({ loading: false });
