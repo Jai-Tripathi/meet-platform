@@ -711,7 +711,7 @@ export const useMeetingStore = create((set, get) => ({
             peerConnection.close();
 
             // Remove from state
-            set((state) => {
+            /*set((state) => {
                 const newPeerConnections = { ...state.peerConnections };
                 delete newPeerConnections[participantId];
                 const newRenegotiationQueue = { ...state.renegotiationQueue };
@@ -723,7 +723,47 @@ export const useMeetingStore = create((set, get) => ({
                     renegotiationQueue: newRenegotiationQueue,
                     pendingOffers: newPendingOffers
                 };
-            });
+            });*/
+
+            // CHANGE: Clean up streams for the participant
+            const newStreams = { ...get().streams };
+            if (newStreams[participantId]) {
+                if (newStreams[participantId].video) {
+                    newStreams[participantId].video.getTracks().forEach(track => track.stop());
+                }
+                if (newStreams[participantId].screen) {
+                    newStreams[participantId].screen.getTracks().forEach(track => track.stop());
+                }
+                delete newStreams[participantId];
+            }
+
+            // CHANGE: If the leaving participant is the activeScreenSharer, reset it
+            let newActiveScreenSharer = get().activeScreenSharer;
+            if (get().activeScreenSharer === participantId) {
+                newActiveScreenSharer = null;
+            }
+
+            // CHANGE: Remove the participant from the participants state
+            const newParticipants = { ...get().participants };
+            delete newParticipants[participantId];
+
+            set((state) => ({
+                peerConnections: {
+                    ...state.peerConnections,
+                    [participantId]: undefined
+                },
+                renegotiationQueue: {
+                    ...state.renegotiationQueue,
+                    [participantId]: undefined
+                },
+                pendingOffers: {
+                    ...state.pendingOffers,
+                    [participantId]: undefined
+                },
+                streams: newStreams,
+                activeScreenSharer: newActiveScreenSharer,
+                participants: newParticipants
+            }));
         }
     },
 
@@ -916,6 +956,14 @@ export const useMeetingStore = create((set, get) => ({
             socket.off("webrtc-answer");
             socket.off("ice-candidate");
             socket.off("sendEmoji");
+            socket.off("disableMedia")
+            socket.off("updateHostTools");
+            socket.off("startScreenShare");
+            socket.off("stopScreenShare");
+            socket.off("activeScreenSharer");
+            socket.off("updateHostTools");
+            socket.off("updateLayout");
+            socket.off("participant-left");
             set({
                 selectedMeeting: null,
                 meetingCode: null,
@@ -926,7 +974,8 @@ export const useMeetingStore = create((set, get) => ({
                 streams: {},
                 peerConnections: {},
                 renegotiationQueue: {},
-                pendingOffers: {}
+                pendingOffers: {},
+                activeScreenSharer: null,
             });
 
             console.log("Leaving meeting, redirecting to /");
@@ -1009,7 +1058,7 @@ export const useMeetingStore = create((set, get) => ({
             const currentPCs = get().peerConnections;
             const currentParticipants = get().participants;
 
-            Object.keys(currentParticipants).forEach((pId) => {
+            /*Object.keys(currentParticipants).forEach((pId) => {
                 if (!participants.find((p) => (p.user._id || p.user) === pId)) {
                     if (currentPCs[pId]) {
                         get().cleanupPeerConnection(pId);
@@ -1029,6 +1078,38 @@ export const useMeetingStore = create((set, get) => ({
                         };
                         return acc;
                     }, {}),
+                waitingToJoin: participants
+                    .filter((p) => p.status === "waiting")
+                    .map((p) => ({ id: p.user._id || p.user, name: p.name || "Unknown" })),
+            });*/
+
+            // CHANGE: Normalize user IDs to strings for consistent comparison
+            const normalizedParticipants = participants.reduce((acc, p) => {
+                const userId = p.user._id ? p.user._id.toString() : p.user.toString();
+                if (p.status === "joined") {
+                    acc[userId] = {
+                        name: p.name || "Unknown",
+                        status: p.status,
+                        mic: currentParticipants[userId]?.mic || false,
+                        video: currentParticipants[userId]?.video || false,
+                        screenSharing: currentParticipants[userId]?.screenSharing || false,
+                    };
+                }
+                return acc;
+            }, {});
+
+            // CHANGE: Remove participants that are no longer in the meeting
+            Object.keys(currentParticipants).forEach((pId) => {
+                if (!normalizedParticipants[pId]) {
+                    console.log(`Removing participant ${pId} from state as they are no longer in the meeting`);
+                    if (currentPCs[pId]) {
+                        get().cleanupPeerConnection(pId);
+                    }
+                }
+            });
+
+            set({
+                participants: normalizedParticipants,
                 waitingToJoin: participants
                     .filter((p) => p.status === "waiting")
                     .map((p) => ({ id: p.user._id || p.user, name: p.name || "Unknown" })),

@@ -160,15 +160,30 @@ io.on("connection", (socket) => {
                 let backendTool = tool;
 
                 if (tool === "Share Screen") {
+                    io.to(meetingCode).emit("disableMedia", { mediaType: "Share Screen" });
                     backendTool = "ScreenShare";
+                } else if (tool === "Unmute") {
+                    io.to(meetingCode).emit("disableMedia", { mediaType: "mic" });
+                } else if (tool === "Video") {
+                    io.to(meetingCode).emit("disableMedia", { mediaType: "video" });
+                } else if (tool === "Chat") {
+                    io.to(meetingCode).emit("disableMedia", { mediaType: "Chat" });
                 }
+
                 meeting.settings[backendTool] = !meeting.settings[backendTool];
                 await meeting.save();
                 console.log("Meeting settings updated:", meeting.settings);
             }
 
+
+
             io.to(meetingCode).emit("updateHostTools", { tool });
         });
+
+        /*socket.on("disableMedia", ({ mediaType }) => {
+            console.log("disableMedia received (Socket.lib):", { mediaType });
+            io.to(meetingCode).emit("disableMedia", { mediaType });
+        });*/
 
         socket.on("sendEmoji", ({ name, emoji }) => {
             console.log("sendEmoji received:", { name, emoji });
