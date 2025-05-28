@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { PiMicrophoneSlashLight } from "react-icons/pi";
 import { FaMicrophone } from "react-icons/fa";
 import { useMeetingStore } from "../store/useMeetingStore";

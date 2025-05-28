@@ -467,7 +467,6 @@ export const useMeetingStore = create((set, get) => ({
         }
     },
 
-    //CHANGE 08/10/2023
 
     switchDevice: async (deviceType, deviceId) => {
         const authUserId = useAuthStore.getState().authUser?._id;
@@ -892,6 +891,7 @@ export const useMeetingStore = create((set, get) => ({
                 myStatus: meeting.status,
             });
             console.log("join meeting store MY-STATUS: ", get().myStatus);
+            console.log("WAITING TO JOIN @ joinMeeting: ", get().waitingToJoin);
 
             get().subscribeToMeetingEvents();
         } catch (err) {
@@ -1058,34 +1058,53 @@ export const useMeetingStore = create((set, get) => ({
             const currentPCs = get().peerConnections;
             const currentParticipants = get().participants;
 
-            /*Object.keys(currentParticipants).forEach((pId) => {
+            // Remove from state
+            /*set((state) => {
+                const newPeerConnections = { ...state.peerConnections };
+                delete newPeerConnections[participantId];
+                const newRenegotiationQueue = { ...state.renegotiationQueue };
+                delete newRenegotiationQueue[participantId];
+                const newPendingOffers = { ...state.pendingOffers };
+                delete newPendingOffers[participantId];
+                return {
+                    peerConnections: newPeerConnections,
+                    renegotiationQueue: newRenegotiationQueue,
+                    pendingOffers: newPendingOffers
+                };
+            });*/
+
+            Object.keys(currentParticipants).forEach((pId) => {
                 if (!participants.find((p) => (p.user._id || p.user) === pId)) {
                     if (currentPCs[pId]) {
                         get().cleanupPeerConnection(pId);
                     }
                 }
             });
-            set({
-                participants: participants
-                    .filter((p) => p.status === "joined")
-                    .reduce((acc, p) => {
-                        acc[p.user._id || p.user] = {
-                            name: p.name || "Unknown",
-                            status: p.status,
-                            mic: currentParticipants[p.user._id || p.user]?.mic || false,
-                            video: currentParticipants[p.user._id || p.user]?.video || false,
-                            screenSharing: currentParticipants[p.user._id || p.user]?.screenSharing || false,
-                        };
-                        return acc;
-                    }, {}),
-                waitingToJoin: participants
-                    .filter((p) => p.status === "waiting")
-                    .map((p) => ({ id: p.user._id || p.user, name: p.name || "Unknown" })),
-            });*/
+            /* set({
+                 participants: participants
+                     .filter((p) => p.status === "joined")
+                     .reduce((acc, p) => {
+                         acc[p.user._id || p.user] = {
+                             name: p.name || "Unknown",
+                             status: p.status,
+                             mic: currentParticipants[p.user._id || p.user]?.mic || false,
+                             video: currentParticipants[p.user._id || p.user]?.video || false,
+                             screenSharing: currentParticipants[p.user._id || p.user]?.screenSharing || false,
+                         };
+                         return acc;
+                     }, {}),
+                 waitingToJoin: participants
+                     .filter((p) => p.status === "waiting")
+                     .map((p) => ({ id: p.user._id || p.user, name: p.name || "Unknown" })),
+             });*/
+
+
 
             // CHANGE: Normalize user IDs to strings for consistent comparison
             const normalizedParticipants = participants.reduce((acc, p) => {
                 const userId = p.user._id ? p.user._id.toString() : p.user.toString();
+                console.log("NORMALIZED PARTICIPANTS: ", p);
+                console.log("userId: ", userId)
                 if (p.status === "joined") {
                     acc[userId] = {
                         name: p.name || "Unknown",
@@ -1099,14 +1118,14 @@ export const useMeetingStore = create((set, get) => ({
             }, {});
 
             // CHANGE: Remove participants that are no longer in the meeting
-            Object.keys(currentParticipants).forEach((pId) => {
-                if (!normalizedParticipants[pId]) {
-                    console.log(`Removing participant ${pId} from state as they are no longer in the meeting`);
-                    if (currentPCs[pId]) {
-                        get().cleanupPeerConnection(pId);
-                    }
-                }
-            });
+            /* Object.keys(currentParticipants).forEach((pId) => {
+                 if (!normalizedParticipants[pId]) {
+                     console.log(`Removing participant ${pId} from state as they are no longer in the meeting`);
+                     if (currentPCs[pId]) {
+                         get().cleanupPeerConnection(pId);
+                     }
+                 }
+             });*/
 
             set({
                 participants: normalizedParticipants,
@@ -1114,6 +1133,9 @@ export const useMeetingStore = create((set, get) => ({
                     .filter((p) => p.status === "waiting")
                     .map((p) => ({ id: p.user._id || p.user, name: p.name || "Unknown" })),
             });
+
+            console.log("WAITING TO JOIN @ PARTICIPANT UPDATE: ", get().waitingToJoin);
+
             // Re-initialize connections for new participants
             get().initializeConnections();
         });
@@ -1250,7 +1272,7 @@ export const useMeetingStore = create((set, get) => ({
                 get().queueRenegotiation(userId);
             }
         });
-
+        // FIRED WHEN 3RD PERSON JOINS
         socket.on("updateParticipantState", ({ participantId, mic, video, screenSharing }) => {
             console.log("updateParticipantState received:", { participantId, mic, video, screenSharing });
             set((state) => ({

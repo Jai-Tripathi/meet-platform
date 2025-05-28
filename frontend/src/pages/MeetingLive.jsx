@@ -219,7 +219,6 @@ const MeetingLive = () => {
 
     return () => {
       socket.off("init");
-      socket.off("participantUpdate");
       socket.off("updateLayout");
       socket.off("updateHostTools");
       socket.off("disableMedia");
@@ -444,7 +443,6 @@ const MeetingLive = () => {
       });
       setIsScreenSharing(true); // Set screen sharing state to true
       setScreenStream(newScreenStream);
-      //setActiveScreenSharer(authUser._id); // Set the active screen sharer
       const userId = authUser._id;
       setActiveScreenSharer(userId);
       socket.emit("activeScreenSharer", { userId }); // Notify others about the active screen sharer

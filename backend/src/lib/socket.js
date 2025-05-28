@@ -174,9 +174,6 @@ io.on("connection", (socket) => {
                 await meeting.save();
                 console.log("Meeting settings updated:", meeting.settings);
             }
-
-
-
             io.to(meetingCode).emit("updateHostTools", { tool });
         });
 
